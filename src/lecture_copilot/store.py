@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS lectures (
   power_state TEXT,                           -- ac | battery
   battery_start INTEGER,
   battery_end INTEGER,
+  source TEXT NOT NULL DEFAULT 'mic',         -- mic | replay (D26)
   notes TEXT
 );
 
@@ -180,6 +181,14 @@ class Store:
         self._conn.execute("PRAGMA foreign_keys=ON")
         with self._lock:
             self._conn.executescript(SCHEMA)
+            self._migrate()
+
+    def _migrate(self) -> None:
+        # Columns added after the first release; CREATE TABLE IF NOT EXISTS leaves old files untouched.
+        cols = {r[1] for r in self._conn.execute("PRAGMA table_info(lectures)")}
+        if "source" not in cols:
+            self._conn.execute("ALTER TABLE lectures ADD COLUMN source TEXT NOT NULL DEFAULT 'mic'")  # mic | replay
+            self._conn.commit()
 
     # -- generic helpers -------------------------------------------------
     def execute(self, sql: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
@@ -213,12 +222,21 @@ class Store:
         return self.query("SELECT * FROM courses ORDER BY created_at")
 
     # -- lectures --------------------------------------------------------
-    def start_lecture(self, course_id: str, asr_model: str, asr_device: str, power_state: str, battery: int | None) -> dict:
+    def start_lecture(
+        self,
+        course_id: str,
+        asr_model: str,
+        asr_device: str,
+        power_state: str,
+        battery: int | None,
+        source: str = "mic",
+        notes: str | None = None,
+    ) -> dict:
         lid = new_id()
         self.execute(
-            "INSERT INTO lectures (id, course_id, started_at, status, asr_model, asr_device, power_state, battery_start)"
-            " VALUES (?,?,?,?,?,?,?,?)",
-            (lid, course_id, now_iso(), "recording", asr_model, asr_device, power_state, battery),
+            "INSERT INTO lectures (id, course_id, started_at, status, asr_model, asr_device, power_state, battery_start, source, notes)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (lid, course_id, now_iso(), "recording", asr_model, asr_device, power_state, battery, source, notes),
         )
         return self.one("SELECT * FROM lectures WHERE id=?", (lid,))  # type: ignore[return-value]
 
@@ -594,6 +612,8 @@ class Store:
             " AND (julianday(ended_at) - julianday(started_at)) * 86400 >= 600"  # a rate needs at least 10 minutes to mean anything
             " THEN (battery_start - battery_end) * 3600.0 / ((julianday(ended_at) - julianday(started_at)) * 86400) END) AS drain_per_hour,"
             " SUM((julianday(ended_at) - julianday(started_at)) * 24) AS hours FROM lectures WHERE ended_at IS NOT NULL"
+            # Live capture only: a replay transcribes a file at full speed, so its battery use and hours would mislead.
+            " AND source = 'mic'"
         )
         return {
             "courses": courses,

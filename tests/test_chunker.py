@@ -43,6 +43,15 @@ def test_pause_closes_chunk_and_silence_is_dropped() -> None:
     assert w._pending == [] or w._pending_samples < 3 * SR
 
 
+def test_flush_queues_speech_that_never_reached_a_pause() -> None:
+    # The end of a replayed file: no silence will ever close this chunk.
+    w = make_worker()
+    feed(w, np.ones(3 * SR, dtype=np.float32))
+    assert queued(w) == []
+    w.flush()
+    assert queued(w) == [(0.0, 3.0)]
+
+
 def test_long_speech_is_force_cut_at_max_chunk() -> None:
     w = make_worker()
     feed(w, np.ones(45 * SR, dtype=np.float32))

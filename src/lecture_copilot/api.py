@@ -8,10 +8,10 @@ import logging
 import tempfile
 from contextlib import asynccontextmanager
 from dataclasses import asdict
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -22,6 +22,7 @@ from lecture_copilot.config import settings
 from lecture_copilot.export import lecture_markdown
 from lecture_copilot.llm import LlmGateway, LlmUnavailable
 from lecture_copilot.power import SleepGuard
+from lecture_copilot.replay import decode_recording
 from lecture_copilot.session import LectureSession
 from lecture_copilot.store import Store
 from lecture_copilot.suggest import SuggestionService
@@ -89,6 +90,15 @@ class StartIn(BaseModel):
     language: str = "en"
 
 
+class AtIn(BaseModel):
+    t: float | None = None  # playback position at the click (replay); omitted for the live mic
+
+
+class PlaybackIn(BaseModel):
+    playing: bool
+    t: float
+
+
 class AttachDeckIn(BaseModel):
     deck_id: str | None
 
@@ -154,6 +164,53 @@ async def start_lecture(body: StartIn) -> dict:
     return lecture
 
 
+@app.post("/api/lectures/replay")
+async def start_replay(request: Request, course_id: str, language: str = "en", filename: str = "recording") -> dict:
+    """Catch up on a recording (D26). The body is the raw file, not a multipart
+    form: Starlette spools multipart uploads above 1 MB to a temporary file, and
+    lecture audio is never written to disk (D8). Decoded in memory and
+    transcribed ahead of playback; the browser keeps the file to play it."""
+    if state.session.lecture is not None:
+        raise HTTPException(409, "a lecture is already recording")
+    limit = settings.replay_max_mb * 1024 * 1024
+    too_big = HTTPException(413, f"recordings up to {settings.replay_max_mb} MB")
+    if int(request.headers.get("content-length") or 0) > limit:
+        raise too_big
+    buf = bytearray()
+    async for part in request.stream():
+        buf += part
+        if len(buf) > limit:
+            raise too_big
+    if not buf:
+        raise HTTPException(400, "no recording in the request")
+    try:
+        audio = await asyncio.to_thread(decode_recording, buf, settings.sample_rate)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    finally:
+        buf.clear()
+    try:
+        lecture = await asyncio.to_thread(
+            state.session.start_replay, course_id, audio, language, PureWindowsPath(filename).name or "recording"
+        )
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    state.sleep_guard.acquire()
+    return {"lecture": lecture, "duration_s": round(len(audio) / settings.sample_rate, 1)}
+
+
+@app.post("/api/lectures/playback")
+async def playback(body: PlaybackIn) -> dict:
+    try:
+        return state.session.playback(body.playing, body.t)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
 @app.post("/api/lectures/stop")
 async def stop_lecture() -> dict:
     try:
@@ -166,18 +223,18 @@ async def stop_lecture() -> dict:
 
 
 @app.post("/api/lectures/flag")
-async def flag() -> dict:
-    result = state.session.flag()
+async def flag(body: AtIn | None = None) -> dict:
+    result = state.session.flag(body.t if body else None)
     if result is None:
         raise HTTPException(409, "no lecture is recording")
     return result
 
 
 @app.post("/api/lectures/pause")
-async def pause() -> dict:
+async def pause(body: AtIn | None = None) -> dict:
     if state.session.lecture is None:
         raise HTTPException(409, "no lecture is recording")
-    return {"paused": state.session.toggle_pause()}
+    return {"paused": state.session.toggle_pause(body.t if body else None)}
 
 
 # -- lectures: after class -----------------------------------------------
@@ -509,7 +566,18 @@ async def ws(websocket: WebSocket) -> None:
 
 # -- frontend ------------------------------------------------------------
 if FRONTEND_DIST.is_dir():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
+
+    class AppFiles(StaticFiles):
+        """Hashed bundles may be cached; the HTML shell must be revalidated, or a
+        browser keeps loading the previous build after an update."""
+
+        async def get_response(self, path: str, scope):  # type: ignore[no-untyped-def]
+            response = await super().get_response(path, scope)
+            if not path.replace("\\", "/").startswith("assets/"):
+                response.headers["Cache-Control"] = "no-cache"
+            return response
+
+    app.mount("/", AppFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
 else:
 
     @app.get("/")

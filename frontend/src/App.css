@@ -426,6 +426,142 @@ button.flag kbd {
   }
 }
 
+/* replay: marker blue for playback, never the red of a live recording */
+.rec.replay {
+  color: var(--blue);
+}
+
+.rec.replay::before {
+  background: var(--blue);
+  box-shadow: 0 0 10px var(--blue);
+}
+
+.rec.replay.paused {
+  color: var(--hl);
+}
+
+.rec.replay.paused::before {
+  background: var(--hl);
+  box-shadow: none;
+  animation: none;
+}
+
+.upload.off {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* the tape: played in blue, transcribed-but-unheard in chalk, the rest faint;
+   flags sit above it as highlighter ticks */
+.tape {
+  --pos: 0%;
+  --done: 0%;
+  flex-basis: 100%;
+  display: grid;
+  gap: 2px;
+  padding: 4px 4px 0;
+}
+
+.tape .ticks {
+  position: relative;
+  height: 10px;
+  margin: 0 7px;
+}
+
+.tape .ticks i {
+  position: absolute;
+  top: 0;
+  width: 3px;
+  height: 10px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--hl);
+  box-shadow: 0 0 6px rgba(255, 213, 74, 0.6);
+}
+
+.scrub {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.scrub:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.scrub::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--blue) var(--pos),
+    rgba(255, 255, 255, 0.3) var(--pos),
+    rgba(255, 255, 255, 0.3) var(--done),
+    rgba(255, 255, 255, 0.08) var(--done)
+  );
+}
+
+.scrub::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--blue) var(--pos),
+    rgba(255, 255, 255, 0.3) var(--pos),
+    rgba(255, 255, 255, 0.3) var(--done),
+    rgba(255, 255, 255, 0.08) var(--done)
+  );
+}
+
+.scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--blue);
+  box-shadow: 0 0 0 3px rgba(111, 160, 255, 0.25);
+}
+
+.scrub::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--blue);
+  box-shadow: 0 0 0 3px rgba(111, 160, 255, 0.25);
+}
+
+.tape-note {
+  font: 500 0.72rem var(--font-mono);
+  color: var(--chalk-dim);
+}
+
+.transcript p.now .t {
+  color: var(--hl);
+  opacity: 1;
+}
+
+aside button.linkish {
+  font: inherit;
+  text-align: left;
+}
+
+aside button.linkish:hover .t,
+aside button.linkish:focus-visible .t {
+  color: var(--hl);
+}
+
 .badge {
   margin-left: auto;
   font: 500 0.78rem var(--font-mono);

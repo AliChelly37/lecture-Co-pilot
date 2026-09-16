@@ -92,6 +92,7 @@ class WhisperWorker:
         self._all_rtfs: list[float] = []
         self._backlog_s = 0.0
         self._last_text = ""
+        self.transcribed_to_s = 0.0  # end of the latest transcribed chunk, on the lecture clock
 
     # -- lifecycle -------------------------------------------------------
     def pick_model(self, on_ac: bool) -> tuple[str, str, str]:
@@ -119,6 +120,11 @@ class WhisperWorker:
         self._paused = paused
         if paused:
             self._flush_pending(force=True)
+
+    def flush(self) -> None:
+        """Queue the open chunk now (the end of a replayed file). Call it from
+        the thread that feeds audio, like `feed`."""
+        self._flush_pending(force=True)
 
     # -- capture side ----------------------------------------------------
     def feed(self, frames: np.ndarray, sample_index: int) -> None:
@@ -259,6 +265,7 @@ class WhisperWorker:
             self._rtfs.append(rtf)
             self._all_rtfs.append(rtf)
             self._backlog_s = max(0.0, self._backlog_s - audio_s)
+            self.transcribed_to_s = max(self.transcribed_to_s, chunk.t0 + audio_s)
             self._emit_status()
 
     def _maybe_downgrade(self) -> None:

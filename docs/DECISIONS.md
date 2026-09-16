@@ -595,6 +595,56 @@ reach one tap. Every rule below is a measured failure, not a hypothesis:
 
 ---
 
+## D26 - Replay: catch up on a recording with the same buttons
+- **Date:** 2026-09-16 (M7, follow-up)
+- **Status:** decided
+- **Context:** the student missed a lecture and has a classmate's recording.
+  They want to listen to it and use Flag and Pause exactly as they would in
+  class, then get the same deadlines and recap.
+- **Options considered:**
+  1. **Batch import**: transcribe the file, no playback, flag afterwards by
+     reading the transcript. Cheapest, but flagging while reading is a
+     different act from flagging while listening, and the ask was the buttons.
+  2. **Backend plays the file** through the speakers and feeds the worker in
+     real time (the `simulate_lecture.py` pattern). One clock, but the browser
+     cannot seek or scrub, the audio device becomes a second capture concern,
+     and a 90-minute file takes 90 minutes to transcribe.
+  3. **Browser plays, backend transcribes ahead** (chosen). The file is
+     decoded in memory and fed to the worker paced by its backlog, so the
+     transcript is ready minutes ahead on the GPU; the audio element is the
+     playback truth and reports play/pause/seek/position; a `PlaybackClock`
+     interpolates between reports and is the session clock. The UI reveals
+     transcript lines when the audio reaches them, so the experience is the
+     live one, with a tape you can scrub.
+- **Decision:** option 3. Same `LectureSession`, a `source` column on
+  lectures (`mic | replay`), flags stamped at the click's playback position
+  (or the clock for F9). Pause in replay stops the playback only and records
+  no gap, because the recording is complete. Replay sessions start paused
+  until the browser reports play. Stopping early stops the feed where it is.
+  - The upload is the **raw request body**, not a multipart form: Starlette
+    spools multipart files above 1 MB to a temporary file, which would break
+    D8. The bytes are decoded in memory and released.
+  - The feeder keeps the worker's backlog **under 8 s**, so the live path's
+    downgrade (30 s of backlog and a slow model) can never fire just because a
+    whole file arrived at once. When the file ends, the open chunk is flushed;
+    otherwise a recording that stops mid-sentence would lose its last words
+    until Finish.
+  - A line and its badge tick appear once playback has **reached** it. The
+    furthest point played is kept by the backend clock, so a seek back or a
+    page reload does not hide what the student already heard.
+- **Consequences:** D8 still holds: the app never writes the file to disk;
+  the browser keeps its own object URL. A reload loses the object URL, not the
+  session: a `pagehide` beacon stops the clock, the transcript is restored, and
+  the UI asks for the same file (duration-checked) and resumes where it was.
+  The `notes` column records "replay of <filename>", and replays are excluded
+  from the dashboard's live-capture numbers (battery drain, recorded hours).
+  Someone else's recording is their recording: the README asks the student to
+  get consent. Tests: clock and reach, paced feeder and tail flush, decode, the
+  API path with a stubbed worker; a headless-browser run against the real
+  model covers play, flag, pause, jump back, reload, re-open and finish.
+
+---
+
 ## Open items
 - Cloudflare token permissions (user action) before the cloud provider can be tested.
 - ~~Local context budget~~ resolved: 16K on gemma3:4b; lecture chunking is part of M3/M4.

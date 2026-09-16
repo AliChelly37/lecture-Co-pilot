@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 
 // ---------- types ----------
@@ -11,13 +11,16 @@ type Asr = {
   rtf_recent: number | null
   fatal?: string
 }
+type ReplayStatus = { filename: string; duration_s: number; transcribed_s: number; done: boolean; heard_s: number }
 type Status = {
   recording: boolean
+  source: 'mic' | 'replay' | null
   paused: boolean
   lecture: { id: string } | null
   elapsed_s: number
   badge: number
   asr: Asr | null
+  replay: ReplayStatus | null
   hotkeys: boolean
   power: { state: 'ac' | 'battery'; battery: number | null }
   llm_available: boolean
@@ -26,7 +29,7 @@ type Status = {
 type Course = { id: string; name: string; timezone: string }
 type Segment = { id: number; t0: number; t1: number; text: string; conf: number; trigger: string[] }
 type Flag = { id: number; t: number; window_t0: number; window_t1: number }
-type LectureRow = { id: string; course_name: string; started_at: string; ended_at: string | null; status: string; asr_model: string }
+type LectureRow = { id: string; course_name: string; started_at: string; ended_at: string | null; status: string; asr_model: string; source: 'mic' | 'replay' }
 type Deck = { id: string; filename: string; slide_count: number; indexed: boolean }
 type Capture = { id: string; t_shutter: number | null; content_kind: string | null; text: string | null; legibility: number | null; status: string }
 type Suggestion = {
@@ -73,7 +76,7 @@ type AnswerT = { answer: string; sources: string[]; coverage: 'answered_from_lec
 type ExtractSummary = { chunks: number; candidates: number; surfaced: number; suggestions: { one_tap: number; maybe: number; log: number; existing: number }; note?: string }
 type Detail = {
   lecture: LectureRow & { deck_id: string | null; power_state: string; battery_start: number | null; battery_end: number | null; asr_rtf_p95: number | null }
-  segments: { id: number; t0: number; t1: number; text: string; trigger_terms: string[]; trigger_score: number }[]
+  segments: { id: number; t0: number; t1: number; text: string; asr_conf: number | null; trigger_terms: string[]; trigger_score: number }[]
   flags: Flag[]
   gaps: { t0: number; t1: number | null; cause: string }[]
   deck: Deck | null
@@ -144,6 +147,24 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [live, setLive] = useState<LiveState>({ segments: [], flags: [], badge: 0 })
   const refresh = useCallback(async () => setStatus(await api<Status>('/api/status')), [])
+  const replay = useReplay(status)
+  // Connected in the middle of a lecture (a reload, a second tab): bring back what was already said and flagged.
+  const restore = useCallback(async (id: string) => {
+    const d = await api<Detail>(`/api/lectures/${id}`).catch(() => null)
+    if (!d) return
+    setLive((l) => {
+      const segIds = new Set(l.segments.map((x) => x.id))
+      const flagIds = new Set(l.flags.map((x) => x.id))
+      const old = d.segments
+        .filter((x) => !segIds.has(x.id))
+        .map((x) => ({ id: x.id, t0: x.t0, t1: x.t1, text: x.text, conf: x.asr_conf ?? 1, trigger: x.trigger_terms }))
+      return {
+        ...l,
+        segments: [...old, ...l.segments].sort((a, b) => a.t0 - b.t0),
+        flags: [...d.flags.filter((x) => !flagIds.has(x.id)), ...l.flags].sort((a, b) => a.t - b.t),
+      }
+    })
+  }, [])
 
   // One socket for the whole app: status stays live on every tab, and the
   // transcript survives switching tabs during a lecture.
@@ -163,6 +184,7 @@ export default function App() {
         if (ev.type === 'hello') {
           setStatus(ev)
           setLive((l) => ({ ...l, badge: ev.badge }))
+          if (ev.recording && ev.lecture) restore(ev.lecture.id)
         } else if (ev.type === 'segment') {
           setLive((l) => ({ ...l, segments: [...l.segments, ev.segment], badge: ev.badge ?? l.badge }))
         } else if (ev.type === 'flag') {
@@ -181,7 +203,7 @@ export default function App() {
       window.clearTimeout(timer)
       ws?.close()
     }
-  }, [refresh])
+  }, [refresh, restore])
 
   useEffect(() => {
     refresh().catch((e) => setError(String(e)))
@@ -218,13 +240,188 @@ export default function App() {
           {error}
         </div>
       )}
-      {view === 'live' && <Live status={status} live={live} refresh={refresh} setError={setError} />}
+      {view === 'live' && <Live status={status} live={live} refresh={refresh} setError={setError} replay={replay} />}
       {view === 'lectures' && <Lectures setError={setError} llmAvailable={!!status?.llm_available} initialId={lectureFromHash()} />}
       {view === 'inbox' && <Inbox setError={setError} />}
       {view === 'dashboard' && <Dashboard setError={setError} />}
       <footer className="muted">Audio never leaves this laptop. During class, nothing is sent anywhere.</footer>
+      {/* Lives in the shell so a recording keeps playing while you look at another tab. */}
+      <audio ref={replay.audioRef} src={replay.file?.url} preload="auto" />
     </div>
   )
+}
+
+// ---------- replay: the browser plays the file, the backend keeps the clock ----------
+const AUDIO_TYPES = 'audio/*,video/*,.m4a,.mp3,.wav,.ogg,.opus,.webm,.mp4,.aac,.flac'
+
+type ReplayFile = { url: string; name: string }
+type ReplayCtl = {
+  file: ReplayFile | null
+  open: (f: File, opts: { autoplay: boolean; startAt?: number }) => void
+  close: () => void
+  audioRef: React.RefObject<HTMLAudioElement | null>
+  pos: number
+  heard: number
+  playing: boolean
+  ended: boolean
+  toggle: () => void
+  seek: (t: number) => void
+}
+
+// Resolves with the duration when this browser can play the file. Checked before anything is uploaded.
+function playable(f: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const a = document.createElement('audio')
+    const url = URL.createObjectURL(f)
+    const settle = (fn: () => void) => {
+      window.clearTimeout(timer)
+      a.onloadedmetadata = null
+      a.onerror = null
+      a.removeAttribute('src')
+      a.load()
+      URL.revokeObjectURL(url)
+      fn()
+    }
+    const timer = window.setTimeout(() => settle(() => reject(new Error(`${f.name} did not open in this browser.`))), 20000)
+    a.preload = 'metadata'
+    a.onloadedmetadata = () => {
+      const d = a.duration
+      settle(() => resolve(d))
+    }
+    a.onerror = () => settle(() => reject(new Error(`This browser can't play ${f.name}. Convert it to mp3 or m4a and open it again.`)))
+    a.src = url
+  })
+}
+
+function useReplay(status: Status | null): ReplayCtl {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const urlRef = useRef<string | null>(null)
+  const pending = useRef<{ autoplay: boolean; startAt: number } | null>(null)
+  const lastReport = useRef(0)
+  const [file, setFile] = useState<ReplayFile | null>(null)
+  const [pos, setPos] = useState(0)
+  const [heard, setHeard] = useState(0) // furthest point reached: lines stay visible after a seek back
+  const [playing, setPlaying] = useState(false)
+  const [ended, setEnded] = useState(false)
+  const inReplay = !!status?.recording && status.source === 'replay'
+  const backendPaused = status?.paused
+  const backendClock = status?.elapsed_s
+
+  // The file stays in this browser; only play, pause and the position reach the backend.
+  const report = useCallback((isPlaying: boolean, t: number) => {
+    lastReport.current = performance.now()
+    api('/api/lectures/playback', json({ playing: isPlaying, t })).catch(() => undefined)
+  }, [])
+
+  const setSource = useCallback((f: File | null) => {
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+    urlRef.current = f ? URL.createObjectURL(f) : null
+    setFile(f && urlRef.current ? { url: urlRef.current, name: f.name } : null)
+  }, [])
+
+  const open = useCallback(
+    (f: File, opts: { autoplay: boolean; startAt?: number }) => {
+      const startAt = opts.startAt ?? 0
+      pending.current = { autoplay: opts.autoplay, startAt }
+      setPos(startAt)
+      setHeard(startAt)
+      setEnded(false)
+      setSource(f)
+    },
+    [setSource],
+  )
+  const close = useCallback(() => {
+    audioRef.current?.pause()
+    pending.current = null
+    setSource(null)
+    setPos(0)
+    setHeard(0)
+    setPlaying(false)
+    setEnded(false)
+  }, [setSource])
+
+  // The audio element is the truth for play, pause and position.
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a || !file) return
+    const onPlay = () => {
+      setPlaying(true)
+      setEnded(false)
+      report(true, a.currentTime)
+    }
+    const onPause = () => {
+      setPlaying(false)
+      report(false, a.currentTime)
+    }
+    const onSeeked = () => {
+      setPos(a.currentTime)
+      report(!a.paused, a.currentTime)
+    }
+    const onTime = () => {
+      setPos(a.currentTime)
+      setHeard((h) => Math.max(h, a.currentTime))
+      if (!a.paused && performance.now() - lastReport.current > 2000) report(true, a.currentTime)
+    }
+    const onEnded = () => setEnded(true)
+    const onMeta = () => {
+      const p = pending.current
+      pending.current = null
+      if (!p) return
+      if (p.startAt > 0) a.currentTime = p.startAt
+      if (p.autoplay) a.play().catch(() => undefined) // a blocked autoplay leaves the Play button
+    }
+    // Closing or reloading the page stops the audio; stop the backend clock with it.
+    const onHide = () => {
+      if (a.paused) return
+      navigator.sendBeacon('/api/lectures/playback', new Blob([JSON.stringify({ playing: false, t: a.currentTime })], { type: 'application/json' }))
+    }
+    const media: [string, () => void][] = [
+      ['play', onPlay],
+      ['pause', onPause],
+      ['seeked', onSeeked],
+      ['timeupdate', onTime],
+      ['ended', onEnded],
+      ['loadedmetadata', onMeta],
+    ]
+    media.forEach(([name, fn]) => a.addEventListener(name, fn))
+    window.addEventListener('pagehide', onHide)
+    if (a.readyState >= 1) onMeta() // the metadata can arrive before this effect runs
+    return () => {
+      media.forEach(([name, fn]) => a.removeEventListener(name, fn))
+      window.removeEventListener('pagehide', onHide)
+    }
+  }, [file, report])
+
+  // F10 is a global hotkey the backend handles; mirror its pause state here.
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a || !file || !inReplay || backendPaused === undefined) return
+    if (backendPaused && !a.paused) a.pause()
+    else if (!backendPaused && a.paused && !a.ended && !pending.current) a.play().catch(() => undefined)
+  }, [backendPaused, inReplay, file])
+
+  // After a reload the audio is gone, but the backend clock may still be running: stop it until the file is back.
+  useEffect(() => {
+    if (inReplay && !file && backendPaused === false) report(false, backendClock ?? 0)
+  }, [inReplay, file, backendPaused, backendClock, report])
+
+  // The session ended (Finish here, or anywhere else): let go of the file.
+  useEffect(() => {
+    if (status && !inReplay && file) close()
+  }, [status, inReplay, file, close])
+
+  const toggle = useCallback(() => {
+    const a = audioRef.current
+    if (!a) return
+    if (a.paused) a.play().catch(() => undefined)
+    else a.pause()
+  }, [])
+  const seek = useCallback((t: number) => {
+    const a = audioRef.current
+    if (a && Number.isFinite(t)) a.currentTime = Math.max(0, t)
+  }, [])
+
+  return { file, open, close, audioRef, pos, heard, playing, ended, toggle, seek }
 }
 
 function StatusPills({ status, connected }: { status: Status | null; connected: boolean }) {
@@ -264,17 +461,20 @@ function Live({
   live,
   refresh,
   setError,
+  replay,
 }: {
   status: Status | null
   live: LiveState
   refresh: () => Promise<void>
   setError: (e: string | null) => void
+  replay: ReplayCtl
 }) {
   const { segments, flags, badge } = live
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState('')
   const [newCourse, setNewCourse] = useState('')
   const [busy, setBusy] = useState(false)
+  const [opening, setOpening] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -285,8 +485,6 @@ function Live({
       })
       .catch((e) => setError(String(e)))
   }, [setError])
-
-  useEffect(() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight }), [segments.length])
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true)
@@ -301,6 +499,72 @@ function Live({
     }
   }
   const recording = !!status?.recording
+  const isReplay = recording && status?.source === 'replay'
+  const rs = status?.replay ?? null
+  const dur = rs?.duration_s ?? 0
+  // Replay: the transcript runs ahead of the audio, so a line (and its badge tick)
+  // appears once the recording has reached it, and stays after a seek back.
+  const reach = Math.max(replay.heard, rs?.heard_s ?? 0) // the backend remembers it across a reload
+  const shown = isReplay ? segments.filter((s) => s.t0 <= reach + 0.3) : segments
+  const playedTo = shown.filter((s) => s.t0 <= replay.pos + 0.3)
+  const nowId = isReplay && replay.file ? playedTo[playedTo.length - 1]?.id : undefined
+  const shownBadge = isReplay ? shown.filter((s) => s.trigger.length > 0).length : badge
+  const pct = (t: number) => `${dur ? Math.min(100, (t / dur) * 100) : 0}%`
+
+  useEffect(() => {
+    const box = listRef.current
+    if (!box) return
+    if (!isReplay) {
+      box.scrollTo({ top: box.scrollHeight })
+      return
+    }
+    // Keep the line being played in view, including after a seek back.
+    const el = box.querySelector<HTMLElement>('p.now')
+    if (!el) return
+    const b = box.getBoundingClientRect()
+    const r = el.getBoundingClientRect()
+    if (r.top < b.top || r.bottom > b.bottom) box.scrollTo({ top: box.scrollTop + (r.top - b.top) - box.clientHeight / 3 })
+  }, [shown.length, nowId, isReplay])
+
+  const openRecording = (f: File) =>
+    run(async () => {
+      setOpening(f.name)
+      try {
+        await playable(f) // a file this browser can't play is refused before anything starts
+        const q = new URLSearchParams({ course_id: courseId, filename: f.name })
+        await api(`/api/lectures/replay?${q}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: f })
+        await refresh()
+        replay.open(f, { autoplay: true })
+      } finally {
+        setOpening(null)
+      }
+    })
+  const reopen = (f: File) =>
+    run(async () => {
+      const d = await playable(f)
+      if (dur && Number.isFinite(d) && Math.abs(d - dur) > Math.max(5, dur * 0.02)) {
+        throw new Error(`${f.name} is ${fmt(d)} long, but the recording you were listening to is ${fmt(dur)}. Open that one.`)
+      }
+      replay.open(f, { autoplay: false, startAt: status?.elapsed_s ?? 0 })
+    })
+  const finish = () =>
+    run(async () => {
+      const ended = await api<{ id: string }>('/api/lectures/stop', { method: 'POST' })
+      replay.close()
+      location.hash = `#lectures/${ended.id}`
+    })
+  const flagNow = () =>
+    run(() => api('/api/lectures/flag', isReplay ? json({ t: replay.audioRef.current?.currentTime ?? replay.pos }) : { method: 'POST' }))
+  const liquid = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    e.currentTarget.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`)
+    e.currentTarget.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`)
+  }
+  const pick = (then: (f: File) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    e.target.value = '' // picking the same file again must still fire
+    if (f) then(f)
+  }
 
   return (
     <>
@@ -331,22 +595,66 @@ function Live({
             <button className="primary" onClick={() => run(() => api('/api/lectures/start', json({ course_id: courseId })))} disabled={!courseId || busy}>
               Start lecture
             </button>
+            <label className={`upload ${!courseId || busy ? 'off' : ''}`} title="Missed the class? Play someone's recording here and use the same buttons.">
+              {opening ? `Opening ${opening}…` : 'Catch up on a recording'}
+              <input type="file" accept={AUDIO_TYPES} hidden disabled={!courseId || busy} onChange={pick(openRecording)} />
+            </label>
+          </>
+        ) : isReplay ? (
+          <>
+            <span className={`rec replay ${replay.playing ? '' : 'paused'}`}>
+              {replay.ended ? 'ENDED' : replay.playing ? 'PLAYING' : 'PAUSED'} · {fmt(replay.file ? replay.pos : (status?.elapsed_s ?? 0))} / {fmt(dur)}
+            </span>
+            {replay.file ? (
+              <>
+                <button className="flag" onClick={flagNow} onPointerMove={liquid} disabled={busy}>
+                  I didn't get that <kbd>F9</kbd>
+                </button>
+                <button onClick={replay.toggle} disabled={busy}>
+                  {replay.playing ? 'Pause (F10)' : replay.ended ? 'Play again' : 'Play (F10)'}
+                </button>
+              </>
+            ) : (
+              <label className={`upload ${busy ? 'off' : ''}`}>
+                Open {rs?.filename ?? 'the recording'} again to keep listening
+                <input type="file" accept={AUDIO_TYPES} hidden disabled={busy} onChange={pick(reopen)} />
+              </label>
+            )}
+            <button className="danger" onClick={finish} disabled={busy}>
+              Finish
+            </button>
+            <span className="badge" title="Possible deadline mentions (deterministic filter; confirmed after class)">
+              {shownBadge} possible deadline{shownBadge === 1 ? '' : 's'}
+            </span>
+            <div className="tape" style={{ '--pos': pct(replay.file ? replay.pos : (status?.elapsed_s ?? 0)), '--done': pct(rs?.transcribed_s ?? 0) } as CSSProperties}>
+              <div className="ticks" aria-hidden>
+                {dur > 0 && flags.map((f) => <i key={f.id} style={{ left: pct(f.t) }} />)}
+              </div>
+              <input
+                className="scrub"
+                type="range"
+                min={0}
+                max={dur || 1}
+                step={0.1}
+                value={Math.min(replay.pos, dur || 1)}
+                onChange={(e) => replay.seek(Number(e.target.value))}
+                disabled={!replay.file}
+                aria-label="Position in the recording"
+                aria-valuetext={`${fmt(replay.pos)} of ${fmt(dur)}`}
+              />
+              <span className="tape-note">
+                {rs?.filename}
+                {rs ? (rs.done ? ' · fully transcribed' : ` · transcribed to ${fmt(rs.transcribed_s)}`) : ''}
+                {replay.ended ? ' · Finish to find deadlines and write the recap' : ' · the file stays in this browser; only the transcript is saved'}
+              </span>
+            </div>
           </>
         ) : (
           <>
             <span className={`rec ${status?.paused ? 'paused' : ''}`}>
               {status?.paused ? 'PAUSED' : 'RECORDING'} · {fmt(status?.elapsed_s ?? 0)}
             </span>
-            <button
-              className="flag"
-              onClick={() => run(() => api('/api/lectures/flag', { method: 'POST' }))}
-              onPointerMove={(e) => {
-                const r = e.currentTarget.getBoundingClientRect()
-                e.currentTarget.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`)
-                e.currentTarget.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`)
-              }}
-              disabled={busy}
-            >
+            <button className="flag" onClick={flagNow} onPointerMove={liquid} disabled={busy}>
               I didn't get that <kbd>F9</kbd>
             </button>
             <button onClick={() => run(() => api('/api/lectures/pause', { method: 'POST' }))} disabled={busy}>
@@ -363,9 +671,14 @@ function Live({
       </section>
       <main>
         <section className="transcript" ref={listRef}>
-          {segments.length === 0 && (
+          {shown.length === 0 && (
             <div className="empty">
-              {recording ? (
+              {isReplay ? (
+                <>
+                  <b>{!replay.file ? 'Open the recording to carry on' : replay.playing ? 'Listening' : 'Press play'}</b>
+                  <span>Each line appears when the recording reaches it. Flag and pause work the same way they do in class.</span>
+                </>
+              ) : recording ? (
                 <>
                   <b>Listening</b>
                   <span>The transcript appears here as it is spoken.</span>
@@ -376,12 +689,13 @@ function Live({
                   <span>
                     Everything stays on this laptop. <kbd>F9</kbd> marks a moment you didn't get, <kbd>F10</kbd> pauses.
                   </span>
+                  <span>Missed the class? Open someone's recording and use the same buttons while you listen.</span>
                 </>
               )}
             </div>
           )}
-          {segments.map((s) => (
-            <p key={s.id} className={s.trigger.length ? 'hit' : ''} title={`conf ${s.conf}`}>
+          {shown.map((s) => (
+            <p key={s.id} className={`${s.trigger.length ? 'hit' : ''} ${s.id === nowId ? 'now' : ''}`} title={`conf ${s.conf}`}>
               <span className="t">{fmt(s.t0)}</span>
               <span className="tx">{s.text}</span>
               {s.trigger.length > 0 && <span className="terms">might be a deadline: {s.trigger.join(', ')}</span>}
@@ -391,11 +705,19 @@ function Live({
         <aside>
           <h2>Flags</h2>
           {flags.length === 0 && <p className="muted">No confusion flags yet.</p>}
-          {flags.map((f) => (
-            <p key={f.id}>
-              <span className="t">{fmt(f.t)}</span> window {fmt(f.window_t0)}–{fmt(f.window_t1)}
-            </p>
-          ))}
+          {flags.map((f) =>
+            isReplay && replay.file ? (
+              <p key={f.id}>
+                <button className="linkish" onClick={() => replay.seek(Math.max(0, f.t - 10))} title="Hear the 10 seconds before this flag again">
+                  <span className="t">{fmt(f.t)}</span> window {fmt(f.window_t0)}–{fmt(f.window_t1)}
+                </button>
+              </p>
+            ) : (
+              <p key={f.id}>
+                <span className="t">{fmt(f.t)}</span> window {fmt(f.window_t0)}–{fmt(f.window_t1)}
+              </p>
+            ),
+          )}
         </aside>
       </main>
     </>
@@ -720,6 +1042,7 @@ function Lectures({ setError, llmAvailable, initialId }: { setError: (e: string 
             <br />
             <span className="muted">
               {when(r.started_at)} · {r.status}
+              {r.source === 'replay' ? ' · from a recording' : ''}
             </span>
           </p>
         ))}
@@ -801,6 +1124,7 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
       <p className="muted small">
         {[
           L.status,
+          L.source === 'replay' ? 'listened from a recording' : null,
           L.asr_model ? `${L.asr_model} on ${L.power_state}` : null,
           L.asr_rtf_p95 ? `speech-to-text at ${(1 / L.asr_rtf_p95).toFixed(0)}× real time` : null,
           drain !== null && drain > 0 ? `battery −${drain}%` : null,

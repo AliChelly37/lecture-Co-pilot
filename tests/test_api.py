@@ -227,3 +227,13 @@ def test_extract_and_inbox_with_fake_model(client: TestClient, monkeypatch: pyte
 def test_bad_deck_type(client: TestClient) -> None:
     r = client.post("/api/decks", files={"file": ("notes.txt", b"hello", "text/plain")})
     assert r.status_code == 400
+
+
+def test_html_shell_is_revalidated_but_bundles_may_be_cached(client: TestClient) -> None:
+    from lecture_copilot.api import FRONTEND_DIST
+
+    bundles = sorted((FRONTEND_DIST / "assets").glob("*.js")) if FRONTEND_DIST.is_dir() else []
+    if not bundles:
+        pytest.skip("frontend not built")
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    assert "cache-control" not in client.get(f"/assets/{bundles[0].name}").headers

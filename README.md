@@ -26,6 +26,10 @@ Grotesque, IBM Plex Sans, IBM Plex Mono.
 |---|---|
 | ![Deadline inbox](docs/screenshots/inbox.jpg) | ![Dashboard](docs/screenshots/dashboard.jpg) |
 
+| Catching up on a recording: the transcript follows the audio, flags sit on the tape |
+|---|
+| ![Replaying a recording with two flags](docs/screenshots/replay.jpg) |
+
 ## Status
 
 - [x] M0 Whisper benchmark on the target laptop
@@ -36,6 +40,7 @@ Grotesque, IBM Plex Sans, IBM Plex Mono.
 - [x] M5 Google Calendar and Notion targets behind one ActionTarget interface (confirm-before-write, idempotent, undo deletes)
 - [x] M6 Eval harness: labelled cases, the trust metric (fake deadlines reaching one tap: 0), precision 1.00 / surfaced recall 0.92 on the local 4B model, deterministic recap-citation check (public OCW cases: when you add them)
 - [x] M7 Dashboard, export (JSON/Markdown), delete, transcript retention, read-only MCP server
+- [x] Replay: catch up on a missed lecture from a recording, with the same flag and pause buttons (D26)
 
 ## Run it
 
@@ -63,6 +68,17 @@ Optional cloud providers (set `LC_LLM_PROVIDER` in a gitignored `.env`):
 `anthropic` (needs `ANTHROPIC_API_KEY`). Capture and transcription work with
 no model provider at all.
 Hotkeys while recording: **F9** flag, **F10** pause/resume.
+
+**Missed the class?** On the Live tab, pick the course and choose **Catch up
+on a recording** (mp3, m4a, wav, a phone video...). The recording plays in the
+browser while the laptop transcribes it ahead of you; each line of the
+transcript appears when the audio reaches it, and the same Flag and Pause
+buttons (and F9/F10) work on the recording's own timeline. Flags show as
+highlighter ticks on the tape, and clicking one jumps back to it. Press
+**Finish** and the lecture is like any other: extract deadlines, write the
+recap, ask it questions. The audio file itself is never stored; only the
+transcript is. Ask before using a classmate's recording, and check the
+lecturer is fine with it.
 
 After a lecture: open **Lectures**, attach the slide deck and import board photos,
 then **Extract deadlines**. Detected items land in **Inbox**: ready ones confirm
@@ -160,7 +176,7 @@ uv run python scripts/probe_vision.py                           # board-reading 
 - Audio is processed in memory and never written to disk or sent anywhere.
 - Only derived text (transcript, OCR text, recaps) is stored, in a local SQLite file you can export or delete.
 - With the default local model provider, nothing leaves the laptop at any point. With a cloud provider, only text and downscaled board photos leave, after class.
-- Check your institution's recording policy before recording a lecture.
+- Check your institution's recording policy before recording a lecture, and ask before you use someone else's recording. Replay keeps the file in your browser; the app stores only the transcript.
 
 ## License
 

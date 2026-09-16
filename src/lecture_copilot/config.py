@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # Confusion flag window: the confusing content usually precedes the tap.
     flag_lookback_s: float = 90.0
     flag_lookahead_s: float = 15.0
+    # Replay mode (D26): an uploaded recording is decoded in memory, never stored.
+    replay_max_mb: int = 400
+    replay_backlog_cap_s: float = 8.0  # + a full 20 s chunk stays under asr_backlog_downgrade_s
 
     # Post-lecture extraction (D15/D21): window size for the local provider; cloud providers use one window.
     extract_window_s: float = 600.0

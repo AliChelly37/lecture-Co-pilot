@@ -56,6 +56,7 @@ model would have bought.
  +----------------------------------------------------------------------+
  | Browser UI (React/Vite, http://localhost:8765)                       |
  |  live transcript | possible-deadline badge | flag/pause buttons      |
+ |  replay a recording (audio element + tape, D26)                      |
  |  photo import | suggestion inbox (confirm/dismiss/undo) | recap      |
  |  ask-the-lecture | dashboard | export/delete                         |
  +-----------------------------+----------------------------------------+
@@ -65,6 +66,7 @@ model would have bought.
  |                                                                      |
  |  DURING CLASS                                                        |
  |  MicCapture -> VAD -> WhisperWorker (GPU, CPU fallback) -> Timeline  |
+ |  FileFeeder (replay: decoded upload, paced by backlog) ---^          |
  |  HotkeyListener (flag, pause) -----------------------------> Timeline|
  |  TriggerFilter (deterministic) <---------------------------- Timeline|
  |  SleepGuard (blocks system sleep while recording)                    |
@@ -113,6 +115,19 @@ model would have bought.
 3. `TriggerFilter` runs on each final segment; the badge counts "possible deadline mentions".
 4. F9 writes `Flag{t, window}`; F10 toggles `Pause` (nothing is transcribed while paused, so classmates' Q&A can be excluded at the user's discretion).
 5. Stop lecture. Nothing has been sent anywhere.
+
+**Replay (D26).** The same session with a different source. The browser first
+checks it can play the file, then sends it as the raw request body (a multipart
+form would be spooled to a temporary file above 1 MB). The backend decodes it to
+16 kHz in memory and `FileFeeder` feeds `WhisperWorker` in 100 ms frames, paced
+by the worker's backlog (under 8 s, so a full 20 s chunk on top never reaches
+the live downgrade threshold), and flushes the open chunk when the file ends.
+The browser plays the file from an object URL and reports play, pause, seek and
+position; `PlaybackClock` interpolates between reports and is the lecture clock
+for flags, F9/F10 and `elapsed_s`, and remembers the furthest point played. The
+transcript is stored as fast as the GPU makes it; the UI shows a line, and
+counts its badge tick, once playback has reached it. Pause stops the playback,
+not the transcription, and records no gap: the recording is complete.
 
 ### 4b. After the lecture
 1. Import board photos (drag-drop or file picker); EXIF time assigns them to the lecture; `BoardReader` derives text; images dropped.
@@ -205,6 +220,9 @@ Principle: **degrade visibly, never silently.**
 | Jargon / names | `hotwords` from the SlideIndex (prompt biasing is documented as unreliable, so its effect is measured, not assumed); slides and board text back up spellings in the recap |
 | Other students' speech | Pause hotkey; no attribution in recaps; transcript retention limit; documented limitation (no diarisation) |
 | Disk nearly full (26 GB free today) | Model cache is checked before download; SQLite growth is small (text only) |
+| Replay: page reloaded mid-recording | A `pagehide` beacon stops the backend clock at the last position (if it never arrives, the page stops it on reconnect); the transcript and flags already heard are restored from the store; the UI asks for the same file again (no re-upload, duration checked) and continues from that position |
+| Replay: file the browser can't play, too large, unreadable | Refused before anything starts: the browser checks playability first; 413 above `replay_max_mb` (400 MB); 400 with the decoder's reason |
+| Replay: finished early | The feeder stops where it is; the transcript ends within one chunk of the stop point, never before the playback position |
 
 ### 9.2 Dates: ambiguous, sarcastic, hypothetical, corrected
 1. The extractor classifies **intent** (`commitment | tentative | hypothetical | joke | past_reference | correction`) with a verbatim `evidence_quote`; prompt examples cover the known traps.
