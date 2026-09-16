@@ -49,6 +49,25 @@ type Suggestion = {
     lecture_id: string
   }
 }
+type FlagExplanationT = { flag_id: number; t: number; what_was_confusing?: string; explanation?: string; prerequisite?: string; sources?: string[]; error?: string }
+type RecapT = {
+  id: string
+  version: number
+  model: string
+  rating: number | null
+  flag_helpful: Record<string, boolean>
+  sections: {
+    title: string
+    highlights: string[]
+    concepts: { name: string; importance: 'high' | 'medium' | 'low'; explanation: string; sources: string[] }[]
+    review_questions: { question: string; answer: string; sources: string[] }[]
+    off_slide_notes: string[]
+    gaps_note: string
+    flag_explanations: FlagExplanationT[]
+    detected_events: string[]
+  }
+}
+type AnswerT = { answer: string; sources: string[]; coverage: 'answered_from_lecture' | 'partly_from_lecture' | 'not_in_lecture' }
 type ExtractSummary = { chunks: number; candidates: number; surfaced: number; suggestions: { one_tap: number; maybe: number; log: number; existing: number }; note?: string }
 type Detail = {
   lecture: LectureRow & { deck_id: string | null; power_state: string; battery_start: number | null; battery_end: number | null; asr_rtf_p95: number | null }
@@ -59,7 +78,34 @@ type Detail = {
   captures: Capture[]
   alignment: { t0: number; t1: number; slide: number | null; score: number }[]
   suggestions: Suggestion[]
+  recap: RecapT | null
   usage: { stage: string; model: string; calls: number; cost_usd: number; cache_read: number; input_tokens: number }[]
+}
+
+// "t=12:34" -> 754 seconds; anything else is shown as a chip.
+const sourceSeconds = (s: string): number | null => {
+  const m = /^t=(\d+):(\d{2})$/.exec(s.trim())
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+
+function Sources({ list, jump }: { list?: string[]; jump: (t: number) => void }) {
+  if (!list?.length) return null
+  return (
+    <span className="sources">
+      {list.map((s, i) => {
+        const t = sourceSeconds(s)
+        return t !== null ? (
+          <button key={i} className="chip link" onClick={() => jump(t)} title="Show this moment in the transcript">
+            {s.slice(2)}
+          </button>
+        ) : (
+          <span key={i} className="chip">
+            {s}
+          </span>
+        )
+      })}
+    </span>
+  )
 }
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`
@@ -451,6 +497,36 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
   const [busy, setBusy] = useState<string | null>(null)
   const [align, setAlign] = useState<{ coverage: number; off_slide: { t0: number; t1: number }[]; deck_mismatch?: boolean; note?: string } | null>(null)
   const [extract, setExtract] = useState<ExtractSummary | null>(null)
+  const [progress, setProgress] = useState<{ done: number; total: number; stage: string } | null>(null)
+  const [highlightT, setHighlightT] = useState<number | null>(null)
+  const [question, setQuestion] = useState('')
+  const [answer, setAnswer] = useState<AnswerT | null>(null)
+  const [openQ, setOpenQ] = useState<Record<number, boolean>>({})
+  const transcriptRef = useRef<HTMLElement>(null)
+
+  // Progress events for a running recap job arrive over the event bus.
+  useEffect(() => {
+    if (busy !== 'recap') return
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`)
+    ws.onmessage = (m) => {
+      const ev = JSON.parse(m.data)
+      if (ev.type === 'progress' && ev.lecture_id === id) setProgress({ done: ev.done, total: ev.total, stage: ev.stage })
+    }
+    return () => {
+      ws.close()
+      setProgress(null)
+    }
+  }, [busy, id])
+
+  const jump = (t: number) => {
+    setHighlightT(t)
+    const target = d?.segments.reduce<(typeof d.segments)[number] | null>((best, s) => (s.t0 <= t + 0.5 && (!best || s.t0 > best.t0) ? s : best), null)
+    if (target) document.getElementById(`seg-${target.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    window.setTimeout(() => setHighlightT(null), 2500)
+  }
+
+  const rate = (rating: number | null, flagHelpful?: Record<string, boolean>) =>
+    d?.recap && run('rate', () => api(`/api/recaps/${d.recap!.id}/rating`, json({ rating, flag_helpful: flagHelpful ?? null })))
 
   const load = useCallback(async () => {
     const detail = await api<Detail>(`/api/lectures/${id}`)
@@ -553,6 +629,111 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
         {d.suggestions.length > 0 && <span className="muted">{d.suggestions.length} suggestion(s) from this lecture are in the Inbox.</span>}
       </div>
 
+      <h3>Recap</h3>
+      <div className="controls">
+        <button className={d.recap ? '' : 'primary'} onClick={() => run('recap', () => api(`/api/lectures/${id}/recap`, { method: 'POST' }))} disabled={busy !== null || !llmAvailable}>
+          {busy === 'recap' ? (progress ? `Working… ${progress.done}/${progress.total} (${progress.stage})` : 'Starting…') : d.recap ? 'Regenerate recap' : 'Generate recap (model)'}
+        </button>
+        {d.recap && (
+          <span className="muted">
+            v{d.recap.version} · {d.recap.model} · rate it:
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} className={`small ${d.recap!.rating === n ? 'primary' : ''}`} onClick={() => rate(n)} disabled={busy !== null}>
+                {n}
+              </button>
+            ))}
+          </span>
+        )}
+      </div>
+      {d.recap && (
+        <div className="recap">
+          <h4>{d.recap.sections.title}</h4>
+          {d.recap.sections.gaps_note && <p className="warn-text small">Recording note: {d.recap.sections.gaps_note}</p>}
+          <h5>Highlights</h5>
+          <ul>
+            {d.recap.sections.highlights.map((h, i) => (
+              <li key={i}>
+                {h.replace(/\s*\(t=\d+:\d{2}\)\s*$/, '')}
+                <Sources list={(h.match(/t=\d+:\d{2}/g) ?? []) as string[]} jump={jump} />
+              </li>
+            ))}
+          </ul>
+          {d.recap.sections.flag_explanations.length > 0 && (
+            <>
+              <h5>What you flagged</h5>
+              {d.recap.sections.flag_explanations.map((f) => (
+                <div key={f.flag_id} className="flagx">
+                  <div>
+                    <button className="chip link" onClick={() => jump(f.t)}>
+                      {fmt(f.t)}
+                    </button>{' '}
+                    <b>{f.what_was_confusing ?? f.error}</b>
+                  </div>
+                  {f.explanation && <p>{f.explanation}</p>}
+                  {f.prerequisite && <p className="muted small">Check first: {f.prerequisite}</p>}
+                  <Sources list={f.sources} jump={jump} />
+                  <span className="helpful">
+                    Helpful?
+                    <button className={`small ${d.recap!.flag_helpful[String(f.flag_id)] === true ? 'primary' : ''}`} onClick={() => rate(null, { ...d.recap!.flag_helpful, [f.flag_id]: true })}>
+                      Yes
+                    </button>
+                    <button className={`small ${d.recap!.flag_helpful[String(f.flag_id)] === false ? 'danger' : ''}`} onClick={() => rate(null, { ...d.recap!.flag_helpful, [f.flag_id]: false })}>
+                      No
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+          <h5>Key concepts</h5>
+          {d.recap.sections.concepts.map((c, i) => (
+            <div key={i} className={`concept ${c.importance}`}>
+              <b>{c.name}</b> <span className="chip">{c.importance}</span>
+              <p>{c.explanation}</p>
+              <Sources list={c.sources} jump={jump} />
+            </div>
+          ))}
+          {d.recap.sections.off_slide_notes.length > 0 && (
+            <>
+              <h5>Off the slides</h5>
+              <ul>
+                {d.recap.sections.off_slide_notes.map((n, i) => (
+                  <li key={i}>{n}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <h5>Review questions</h5>
+          {d.recap.sections.review_questions.map((q, i) => (
+            <div key={i} className="q">
+              <button className="linkish" onClick={() => setOpenQ((o) => ({ ...o, [i]: !o[i] }))}>
+                {openQ[i] ? '▾' : '▸'} {q.question}
+              </button>
+              {openQ[i] && (
+                <p>
+                  {q.answer} <Sources list={q.sources} jump={jump} />
+                </p>
+              )}
+            </div>
+          ))}
+          <h5>Ask this lecture</h5>
+          <div className="controls">
+            <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="e.g. why does the fugacity coefficient approach 1 at low pressure?" style={{ flex: 1 }} />
+            <button onClick={() => run('ask', async () => setAnswer(await api(`/api/lectures/${id}/ask`, json({ question }))))} disabled={busy !== null || !question.trim()}>
+              {busy === 'ask' ? 'Thinking…' : 'Ask'}
+            </button>
+          </div>
+          {answer && (
+            <div className="answer">
+              <p>{answer.answer}</p>
+              {answer.coverage === 'not_in_lecture' && <p className="warn-text small">The lecture material doesn't cover this.</p>}
+              {answer.coverage === 'partly_from_lecture' && <p className="muted small">Only partly covered by the lecture.</p>}
+              <Sources list={answer.sources} jump={jump} />
+            </div>
+          )}
+        </div>
+      )}
+
       <h3>Whiteboard photos</h3>
       <div className="controls">
         <label className="upload">
@@ -586,12 +767,13 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
       ))}
 
       <h3>Transcript</h3>
-      <section className="transcript tall">
+      <section className="transcript tall" ref={transcriptRef}>
         {d.segments.map((s) => {
           const flagged = d.flags.some((f) => s.t1 > f.window_t0 && s.t0 < f.window_t1)
           const slide = d.alignment.find((w) => s.t0 >= w.t0 && s.t0 < w.t1)?.slide
+          const lit = highlightT !== null && s.t0 <= highlightT + 0.5 && s.t1 >= highlightT - 30
           return (
-            <p key={s.id} className={flagged ? 'flagged' : s.trigger_terms.length ? 'hit' : ''}>
+            <p key={s.id} id={`seg-${s.id}`} className={`${flagged ? 'flagged' : s.trigger_terms.length ? 'hit' : ''} ${lit ? 'lit' : ''}`}>
               <span className="t">{fmt(s.t0)}</span>
               {slide ? <span className="slide">s{slide}</span> : null}
               {s.text}

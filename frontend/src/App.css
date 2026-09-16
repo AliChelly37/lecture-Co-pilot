@@ -77,6 +77,27 @@ blockquote { margin: 6px 0; padding: 6px 10px; border-left: 2px solid #3a3f4a; c
 button.small { padding: 3px 8px; font-size: 0.8rem; margin-top: 4px; }
 a.button { display: inline-block; background: var(--accent); color: #fff; padding: 8px 12px; border-radius: 6px; text-decoration: none; }
 
+/* recap */
+.recap { background: #12151b; border-radius: 6px; padding: 10px 14px; }
+.recap h4 { margin: 4px 0 8px; font-size: 1.05rem; }
+.recap h5 { margin: 14px 0 6px; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.recap ul { margin: 0; padding-left: 18px; }
+.recap li { margin-bottom: 4px; }
+.recap p { margin: 4px 0; line-height: 1.45; }
+.sources { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-left: 6px; vertical-align: middle; }
+.chip { display: inline-block; font-size: 0.7rem; background: #1f2a3d; color: #9cc0ff; padding: 1px 6px; border-radius: 3px; border: none; }
+.chip.link { cursor: pointer; background: #24304a; }
+.chip.link:hover { background: #2f3f60; }
+.concept { border-left: 3px solid #2a2f3a; padding: 4px 10px; margin: 6px 0; }
+.concept.high { border-left-color: var(--accent); }
+.concept.medium { border-left-color: #6f7c99; }
+.flagx { background: #1b1630; border-left: 3px solid #6f3fd6; border-radius: 4px; padding: 8px 10px; margin: 6px 0; }
+.helpful { display: inline-flex; gap: 6px; align-items: center; margin-left: 8px; font-size: 0.8rem; color: var(--muted); }
+.q { margin: 4px 0; }
+.linkish { background: none; border: none; color: var(--text); padding: 2px 0; cursor: pointer; text-align: left; }
+.answer { background: #0f1115; border-radius: 4px; padding: 8px 10px; margin-top: 6px; }
+.transcript p.lit { background: #2b3a1f; outline: 1px solid #5c8a3a; transition: background 0.3s; }
+
 /* lectures view */
 main.lectures { grid-template-columns: 280px 1fr; }
 @media (max-width: 760px) { main.lectures { grid-template-columns: 1fr; } }

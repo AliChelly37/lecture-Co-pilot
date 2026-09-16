@@ -182,6 +182,7 @@ async def get_lecture(lecture_id: str) -> dict:
         "alignment": state.store.alignment(lecture_id),
         "candidates": state.store.candidates(lecture_id),
         "suggestions": state.store.suggestions(None, lecture_id),
+        "recap": state.store.latest_recap(lecture_id),
         "usage": state.store.usage_by_stage(lecture_id),
     }
 
@@ -221,6 +222,62 @@ async def extract(lecture_id: str) -> dict:
     window = settings.extract_window_s if llm.provider == "ollama" else 0.0
     try:
         return await asyncio.to_thread(pipeline.extract_lecture, state.store, llm, lecture_id, window, settings.extract_overlap_s)
+    except LlmUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+class AskIn(BaseModel):
+    question: str
+
+
+class RatingIn(BaseModel):
+    rating: int | None = None
+    flag_helpful: dict[str, bool] | None = None
+
+
+@app.post("/api/lectures/{lecture_id}/recap")
+async def make_recap(lecture_id: str) -> dict:
+    lecture = _lecture_or_404(lecture_id)
+    if lecture["status"] == "recording":
+        raise HTTPException(409, "stop the lecture before generating a recap")
+    llm = _llm_or_503()
+    window = settings.extract_window_s if llm.provider == "ollama" else 0.0
+    try:
+        return await asyncio.to_thread(pipeline.recap_lecture, state.store, llm, lecture_id, window, state.bus.publish)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except LlmUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.get("/api/lectures/{lecture_id}/recap")
+async def get_recap(lecture_id: str) -> dict:
+    _lecture_or_404(lecture_id)
+    recap = state.store.latest_recap(lecture_id)
+    if recap is None:
+        raise HTTPException(404, "no recap yet")
+    return recap
+
+
+@app.post("/api/recaps/{rid}/rating")
+async def rate_recap(rid: str, body: RatingIn) -> dict:
+    if state.store.get_recap(rid) is None:
+        raise HTTPException(404, "unknown recap")
+    state.store.rate_recap(rid, body.rating, body.flag_helpful)
+    return state.store.get_recap(rid)  # type: ignore[return-value]
+
+
+@app.post("/api/lectures/{lecture_id}/ask")
+async def ask(lecture_id: str, body: AskIn) -> dict:
+    _lecture_or_404(lecture_id)
+    llm = _llm_or_503()
+    if not body.question.strip():
+        raise HTTPException(400, "empty question")
+    window = settings.extract_window_s if llm.provider == "ollama" else 0.0
+    try:
+        return await asyncio.to_thread(pipeline.ask_lecture, state.store, llm, lecture_id, body.question.strip(), window)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
     except LlmUnavailable as exc:
         raise HTTPException(503, str(exc)) from exc
 

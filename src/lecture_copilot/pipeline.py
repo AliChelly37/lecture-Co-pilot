@@ -5,15 +5,34 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
 from lecture_copilot.align import SlideAligner, coverage, off_slide_stretches
 from lecture_copilot.dates import DateResolver
 from lecture_copilot.deck import SLIDE_INDEX_SYSTEM, SlideIndex, extract_deck, index_to_json, slide_index_user_message
-from lecture_copilot.extract import EXTRACT_SYSTEM, Candidate, ChunkExtraction, chunk_prompt, chunk_segments, locate, merge
+from lecture_copilot.extract import EXTRACT_SYSTEM, Candidate, Chunk, ChunkExtraction, chunk_prompt, chunk_segments, locate, merge
 from lecture_copilot.llm import LlmGateway
 from lecture_copilot.photos import BOARD_SYSTEM, BoardReading, prepare_photo, seconds_into_lecture
+from lecture_copilot.recap import (
+    ASK_SYSTEM,
+    FLAG_SYSTEM,
+    NOTES_SYSTEM,
+    RECAP_SYSTEM,
+    Answer,
+    ChunkNotes,
+    FlagExplanation,
+    Recap,
+    ask_prompt,
+    boards_in,
+    flag_prompt,
+    notes_prompt,
+    pick_excerpts,
+    recap_prompt,
+    slides_in,
+    window_text,
+)
 from lecture_copilot.store import Store
 from lecture_copilot.suggest import SuggestionService
 
@@ -165,6 +184,134 @@ def extract_lecture(store: Store, llm: LlmGateway, lecture_id: str, window_s: fl
         "surfaced": sum(1 for c in cands if c.status == "surfaced"),
         "suggestions": counts,
     }
+
+
+def recap_lecture(
+    store: Store,
+    llm: LlmGateway,
+    lecture_id: str,
+    window_s: float = 600.0,
+    progress: Callable[[dict], None] | None = None,
+) -> dict:
+    """Map-reduce recap (M4). Emits progress events so a 2-3 minute local
+    run is visible in the UI."""
+    lecture = store.get_lecture(lecture_id)
+    if lecture is None:
+        raise KeyError("unknown lecture")
+    course = store.one("SELECT * FROM courses WHERE id=?", (lecture["course_id"],))
+    segments = store.segments(lecture_id)
+    if not segments or course is None:
+        raise ValueError("no transcript to recap")
+    deck = store.get_deck(lecture["deck_id"]) if lecture.get("deck_id") else None
+    alignment = store.alignment(lecture_id)
+    captures = store.board_captures(lecture_id)
+    flags = store.flags(lecture_id)
+    gaps = store.gaps(lecture_id)
+    chunks = chunk_segments(segments, window_s=window_s, overlap_s=0.0)
+    total = len(chunks) + len(flags) + 1
+    done = 0
+
+    def tick(stage: str) -> None:
+        nonlocal done
+        done += 1
+        if progress:
+            progress({"type": "progress", "job": "recap", "lecture_id": lecture_id, "stage": stage, "done": done, "total": total})
+
+    notes: list[tuple[Chunk, ChunkNotes]] = []
+    for ch in chunks:
+        n = llm.structured(
+            stage="recap_notes",
+            schema=ChunkNotes,
+            system=[NOTES_SYSTEM],
+            user=notes_prompt(ch, slides_in(alignment, deck, ch.t0, ch.t1), boards_in(captures, ch.t0, ch.t1)),
+            effort="low",
+            cache=False,
+            lecture_id=lecture_id,
+            max_tokens=1200,
+        )
+        notes.append((ch, n))
+        tick("notes")
+
+    flag_out: list[dict] = []
+    for f in flags:
+        text = window_text(segments, f["window_t0"], f["window_t1"])
+        if not text.strip():
+            tick("flag")
+            continue
+        try:
+            fe = llm.structured(
+                stage="recap_flag",
+                schema=FlagExplanation,
+                system=[FLAG_SYSTEM],
+                user=flag_prompt(
+                    f["t"],
+                    text,
+                    slides_in(alignment, deck, f["window_t0"], f["window_t1"]),
+                    boards_in(captures, f["window_t0"], f["window_t1"]),
+                ),
+                effort="medium",
+                cache=False,
+                lecture_id=lecture_id,
+                max_tokens=900,
+            )
+            flag_out.append({"flag_id": f["id"], "t": f["t"], **fe.model_dump()})
+        except Exception:
+            log.exception("flag explanation failed for flag %s", f["id"])
+            flag_out.append({"flag_id": f["id"], "t": f["t"], "error": "explanation failed"})
+        tick("flag")
+
+    events = [
+        f"{s['payload']['title']} ({s['payload']['type']}) {s['payload']['date'] or s['payload']['date_expression']}"
+        for s in store.suggestions(None, lecture_id)
+        if s["state"] != "dismissed"
+    ]
+    windows = SlideAligner(deck["slides_text"]).align(segments) if deck else []
+    off = off_slide_stretches(windows) if windows else []
+    recap = llm.structured(
+        stage="recap",
+        schema=Recap,
+        system=[RECAP_SYSTEM],
+        user=recap_prompt(course["name"], notes, off, gaps, events),
+        effort="high",
+        cache=False,
+        lecture_id=lecture_id,
+        max_tokens=3000,
+    )
+    tick("recap")
+
+    sections = recap.model_dump() | {
+        "flag_explanations": flag_out,
+        "chunk_notes": [{"t0": ch.t0, "t1": ch.t1, **n.model_dump()} for ch, n in notes],
+        "detected_events": events,
+    }
+    version = store.next_recap_version(lecture_id)
+    rid = store.add_recap(lecture_id, version, f"{llm.provider}:{llm.describe()['text_model']}", "high", sections)
+    store.execute("UPDATE lectures SET status='processed' WHERE id=?", (lecture_id,))
+    return store.get_recap(rid)  # type: ignore[return-value]
+
+
+def ask_lecture(store: Store, llm: LlmGateway, lecture_id: str, question: str, window_s: float = 600.0) -> dict:
+    lecture = store.get_lecture(lecture_id)
+    if lecture is None:
+        raise KeyError("unknown lecture")
+    segments = store.segments(lecture_id)
+    if not segments:
+        raise ValueError("no transcript")
+    chunks = chunk_segments(segments, window_s=window_s, overlap_s=0.0)
+    excerpts = pick_excerpts(chunks, question)
+    latest = store.latest_recap(lecture_id)
+    summary = "\n".join(f"- {h}" for h in latest["sections"].get("highlights", [])) if latest else ""
+    answer = llm.structured(
+        stage="ask",
+        schema=Answer,
+        system=[ASK_SYSTEM],
+        user=ask_prompt(question, excerpts, summary),
+        effort="medium",
+        cache=False,
+        lecture_id=lecture_id,
+        max_tokens=800,
+    )
+    return answer.model_dump() | {"excerpts": [{"t0": c.t0, "t1": c.t1} for c in excerpts]}
 
 
 def align_lecture(store: Store, lecture_id: str) -> dict:

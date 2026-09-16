@@ -456,6 +456,37 @@ class Store:
             (json.dumps(payload, ensure_ascii=False), tier, now_iso(), sid),
         )
 
+    # -- recaps (M4) -----------------------------------------------------
+    def next_recap_version(self, lecture_id: str) -> int:
+        row = self.one("SELECT MAX(version) AS v FROM recaps WHERE lecture_id=?", (lecture_id,))
+        return int(row["v"] or 0) + 1 if row else 1
+
+    def add_recap(self, lecture_id: str, version: int, model: str, effort: str, sections: dict) -> str:
+        rid = new_id()
+        self.execute(
+            "INSERT INTO recaps (id, lecture_id, version, model, effort, sections, created_at) VALUES (?,?,?,?,?,?,?)",
+            (rid, lecture_id, version, model, effort, json.dumps(sections, ensure_ascii=False), now_iso()),
+        )
+        return rid
+
+    def _recap_row(self, row: dict | None) -> dict | None:
+        if row:
+            row["sections"] = json.loads(row["sections"])
+            row["flag_helpful"] = json.loads(row["flag_helpful"]) if row.get("flag_helpful") else {}
+        return row
+
+    def get_recap(self, rid: str) -> dict | None:
+        return self._recap_row(self.one("SELECT * FROM recaps WHERE id=?", (rid,)))
+
+    def latest_recap(self, lecture_id: str) -> dict | None:
+        return self._recap_row(self.one("SELECT * FROM recaps WHERE lecture_id=? ORDER BY version DESC LIMIT 1", (lecture_id,)))
+
+    def rate_recap(self, rid: str, rating: int | None, flag_helpful: dict | None) -> None:
+        self.execute(
+            "UPDATE recaps SET rating=COALESCE(?, rating), flag_helpful=COALESCE(?, flag_helpful) WHERE id=?",
+            (rating, json.dumps(flag_helpful) if flag_helpful is not None else None, rid),
+        )
+
     def usage_by_stage(self, lecture_id: str | None = None) -> list[dict]:
         where = " WHERE lecture_id=?" if lecture_id else ""
         return self.query(

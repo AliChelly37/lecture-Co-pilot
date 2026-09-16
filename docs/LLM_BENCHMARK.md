@@ -43,6 +43,21 @@ Real handwritten boards will be harder; this only shows the path works.
 4. **Cloudflare Workers AI** stays the cloud option for quality (70B, free
    tier 10k neurons/day) once the token has "Workers AI - Read/Edit".
 
+## Recap and ask on the fixture, 2026-09-16 (gemma3:4b, real API path)
+
+Whole pipeline for a 140 s lecture with one flag: 1 notes call + 1 flag call +
+1 recap call + 1 question = **~70 s, $0**. The recap had a title, >=3 highlights,
+>=2 concepts (fugacity among them) with `t=MM:SS` sources, a >80-character
+flag explanation and >=2 review questions.
+
+Two behaviours worth keeping in the design:
+- **A repetition loop inside a string** ("198 198 198 ...") hit the 900-token
+  output cap on the flag call; the JSON was invalid, the gateway's corrective
+  retry produced a valid one. The cap and the retry are load-bearing.
+- **Booleans are unreliable on the 4B model:** it answered a question
+  correctly from the excerpts and still set `not_covered: true`. Categorical
+  fields are now enums everywhere, including that one.
+
 ## Next measurements
 - llama3.2 (3B) re-run with the output cap, for a speed floor.
 - gemma3:4b on real transcript chunks (Whisper output, not clean text) and on

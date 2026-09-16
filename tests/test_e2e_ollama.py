@@ -138,3 +138,40 @@ def test_extraction_locally(client: TestClient) -> None:
     assert not any("navier" in s["payload"]["title"].lower() or "joke" in s["payload"]["title"].lower() for s in inbox)
     for s in inbox:
         assert s["payload"]["t0"] is not None, s["payload"]  # evidence located on the timeline
+
+
+def test_recap_and_ask_locally(client: TestClient) -> None:
+    """Recap map-reduce plus a flag explanation and a question, on the real model."""
+    from lecture_copilot.api import state
+
+    course = client.post("/api/courses", json={"name": "Thermo", "timezone": "Europe/Paris"}).json()
+    lec = state.store.start_lecture(course["id"], "gemma3:4b", "cuda", "ac", None)
+    text = (Path(__file__).resolve().parents[1] / "eval/fixtures/tts_lecture.txt").read_text(encoding="utf-8")
+    t = 0.0
+    flag_t = None
+    for sentence in [s.strip() for s in text.replace("\n", " ").split(". ") if s.strip()]:
+        dur = max(2.0, len(sentence.split()) / 2.5)
+        state.store.add_segment(lec["id"], t, t + dur, sentence, 0.85, "gemma3:4b", 0, [])
+        if "residual Gibbs energy divided by" in sentence:
+            flag_t = t + dur  # the student got lost right after the integral
+        t += dur + 0.5
+    assert flag_t is not None
+    state.store.add_flag(lec["id"], flag_t, max(0.0, flag_t - 90), flag_t + 15)
+    state.store.end_lecture(lec["id"], 0.1, None)
+
+    r = client.post(f"/api/lectures/{lec['id']}/recap")
+    assert r.status_code == 200, r.text
+    recap = r.json()["sections"]
+    assert recap["title"] and len(recap["highlights"]) >= 3 and len(recap["concepts"]) >= 2, recap
+    assert any("fugacity" in c["name"].lower() for c in recap["concepts"]), [c["name"] for c in recap["concepts"]]
+    fx = recap["flag_explanations"][0]
+    assert "explanation" in fx and len(fx["explanation"]) > 80, fx
+    assert any(s.startswith("t=") for c in recap["concepts"] for s in c["sources"]), "no timestamp sources"
+    assert len(recap["review_questions"]) >= 2
+
+    a = client.post(
+        f"/api/lectures/{lec['id']}/ask", json={"question": "Why does the fugacity coefficient approach one as pressure goes to zero?"}
+    ).json()
+    assert a["coverage"] != "not_in_lecture" and len(a["answer"]) > 40, a
+    usage = {u["stage"]: u for u in client.get("/api/usage").json()}
+    assert {"recap_notes", "recap_flag", "recap", "ask"} <= set(usage) and all(u["cost_usd"] == 0 for u in usage.values())
