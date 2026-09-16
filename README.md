@@ -13,6 +13,19 @@ the decision log in [docs/DECISIONS.md](docs/DECISIONS.md) and the measured
 speech-to-text benchmark in [docs/ASR_BENCHMARK.md](docs/ASR_BENCHMARK.md)
 and the model-provider benchmark in [docs/LLM_BENCHMARK.md](docs/LLM_BENCHMARK.md).
 
+## What it looks like
+
+A dimmed lecture hall, glass panels, and one highlighter. Type: Bricolage
+Grotesque, IBM Plex Sans, IBM Plex Mono.
+
+| Live | Recap |
+|---|---|
+| ![Live view](docs/screenshots/live.jpg) | ![Recap with a flagged moment](docs/screenshots/recap.jpg) |
+
+| Inbox | Dashboard |
+|---|---|
+| ![Deadline inbox](docs/screenshots/inbox.jpg) | ![Dashboard](docs/screenshots/dashboard.jpg) |
+
 ## Status
 
 - [x] M0 Whisper benchmark on the target laptop

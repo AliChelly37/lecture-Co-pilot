@@ -189,9 +189,10 @@ async def list_lectures() -> list[dict]:
 @app.get("/api/lectures/{lecture_id}")
 async def get_lecture(lecture_id: str) -> dict:
     lecture = _lecture_or_404(lecture_id)
+    course = state.store.one("SELECT name FROM courses WHERE id=?", (lecture["course_id"],))
     deck = state.store.get_deck(lecture["deck_id"]) if lecture.get("deck_id") else None
     return {
-        "lecture": lecture,
+        "lecture": lecture | {"course_name": course["name"] if course else ""},
         "segments": state.store.segments(lecture_id),
         "flags": state.store.flags(lecture_id),
         "gaps": state.store.gaps(lecture_id),
@@ -486,7 +487,15 @@ async def ws(websocket: WebSocket) -> None:
     await websocket.accept()
     q = state.bus.subscribe()
     try:
-        await websocket.send_json({"type": "hello", **state.session.status()})
+        await websocket.send_json(
+            {
+                "type": "hello",
+                **state.session.status(),
+                "llm_available": state.llm.available,
+                "llm": state.llm.describe(),
+                "targets": list(state.targets),
+            }
+        )
         while True:
             event = await q.get()
             await websocket.send_json(event)

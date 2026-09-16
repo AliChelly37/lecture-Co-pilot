@@ -37,6 +37,7 @@ from lecture_copilot.recap import (
     ask_prompt,
     boards_in,
     flag_prompt,
+    normalise_recap,
     notes_prompt,
     pick_excerpts,
     recap_prompt,
@@ -294,6 +295,9 @@ def recap_lecture(
         "chunk_notes": [{"t0": ch.t0, "t1": ch.t1, **n.model_dump()} for ch, n in notes],
         "detected_events": events,
     }
+    sections = normalise_recap(
+        sections, has_deck=deck is not None, n_boards=len([c for c in captures if c.get("status") == "derived"]), has_gaps=bool(gaps)
+    )
     version = store.next_recap_version(lecture_id)
     rid = store.add_recap(lecture_id, version, f"{llm.provider}:{llm.describe()['text_model']}", "high", sections)
     store.execute("UPDATE lectures SET status='processed' WHERE id=?", (lecture_id,))

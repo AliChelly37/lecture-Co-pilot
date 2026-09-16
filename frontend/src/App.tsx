@@ -21,6 +21,7 @@ type Status = {
   hotkeys: boolean
   power: { state: 'ac' | 'battery'; battery: number | null }
   llm_available: boolean
+  llm?: { provider: string; text_model: string; local: boolean }
 }
 type Course = { id: string; name: string; timezone: string }
 type Segment = { id: number; t0: number; t1: number; text: string; conf: number; trigger: string[] }
@@ -120,11 +121,76 @@ const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'cont
 
 // ---------- app shell ----------
 export default function App() {
-  const [view, setView] = useState<'live' | 'lectures' | 'inbox' | 'dashboard'>('live')
+  type View = 'live' | 'lectures' | 'inbox' | 'dashboard'
+  // Routes: #lectures, #lectures/<lecture id>, #inbox, #dashboard.
+  const fromHash = (): View => {
+    const h = location.hash.replace('#', '').split('/')[0]
+    return h === 'lectures' || h === 'inbox' || h === 'dashboard' ? h : 'live'
+  }
+  const lectureFromHash = () => location.hash.replace('#', '').split('/')[1] ?? null
+  const [view, setViewState] = useState<View>(fromHash)
+  const setView = (v: View) => {
+    setViewState(v)
+    history.replaceState(null, '', v === 'live' ? location.pathname : `#${v}`)
+  }
+  useEffect(() => {
+    const onHash = () => setViewState(fromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
   const [status, setStatus] = useState<Status | null>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [live, setLive] = useState<LiveState>({ segments: [], flags: [], badge: 0 })
   const refresh = useCallback(async () => setStatus(await api<Status>('/api/status')), [])
+
+  // One socket for the whole app: status stays live on every tab, and the
+  // transcript survives switching tabs during a lecture.
+  useEffect(() => {
+    let ws: WebSocket | null = null
+    let timer: number | undefined
+    let closed = false
+    const connect = () => {
+      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`)
+      ws.onopen = () => setConnected(true)
+      ws.onclose = () => {
+        setConnected(false)
+        if (!closed) timer = window.setTimeout(connect, 1500)
+      }
+      ws.onmessage = (m) => {
+        const ev = JSON.parse(m.data)
+        if (ev.type === 'hello') {
+          setStatus(ev)
+          setLive((l) => ({ ...l, badge: ev.badge }))
+        } else if (ev.type === 'segment') {
+          setLive((l) => ({ ...l, segments: [...l.segments, ev.segment], badge: ev.badge ?? l.badge }))
+        } else if (ev.type === 'flag') {
+          setLive((l) => ({ ...l, flags: [...l.flags, ev.flag] }))
+        } else if (ev.type === 'lecture_started') {
+          setLive({ segments: [], flags: [], badge: 0 })
+          refresh()
+        } else if (ev.type !== 'progress') {
+          refresh()
+        }
+      }
+    }
+    connect()
+    return () => {
+      closed = true
+      window.clearTimeout(timer)
+      ws?.close()
+    }
+  }, [refresh])
+
+  useEffect(() => {
+    refresh().catch((e) => setError(String(e)))
+  }, [refresh])
+
+  useEffect(() => {
+    if (!status?.recording) return
+    const t = window.setInterval(() => refresh().catch(() => undefined), 5000)
+    return () => window.clearInterval(t)
+  }, [status?.recording, refresh])
 
   return (
     <div className="app">
@@ -151,11 +217,11 @@ export default function App() {
           {error}
         </div>
       )}
-      {view === 'live' && <Live status={status} setStatus={setStatus} refresh={refresh} setConnected={setConnected} setError={setError} />}
-      {view === 'lectures' && <Lectures setError={setError} llmAvailable={!!status?.llm_available} />}
+      {view === 'live' && <Live status={status} live={live} refresh={refresh} setError={setError} />}
+      {view === 'lectures' && <Lectures setError={setError} llmAvailable={!!status?.llm_available} initialId={lectureFromHash()} />}
       {view === 'inbox' && <Inbox setError={setError} />}
       {view === 'dashboard' && <Dashboard setError={setError} />}
-      <footer className="muted">Audio never leaves this laptop. Nothing is sent anywhere during class.</footer>
+      <footer className="muted">Audio never leaves this laptop. During class, nothing is sent anywhere.</footer>
     </div>
   )
 }
@@ -171,7 +237,11 @@ function StatusPills({ status, connected }: { status: Status | null; connected: 
           {status.power.battery !== null ? ` ${status.power.battery}%` : ''}
         </span>
       )}
-      {status && <span className={`pill ${status.llm_available ? 'ok' : 'warn'}`}>{status.llm_available ? 'Claude ready' : 'no API key'}</span>}
+      {status && (
+        <span className={`pill ${status.llm_available ? 'ok' : 'warn'}`}>
+          {status.llm_available ? `${status.llm?.text_model ?? 'model'} · ${status.llm?.local ? 'on this laptop' : status.llm?.provider}` : 'no model set up'}
+        </span>
+      )}
       {asr && (
         <span className={`pill ${asr.fatal ? 'bad' : asr.loaded ? 'ok' : 'warn'}`}>
           {asr.fatal ? 'ASR failed' : asr.loaded ? `${asr.model} on ${asr.device}` : `loading ${asr.model}…`}
@@ -186,77 +256,34 @@ function StatusPills({ status, connected }: { status: Status | null; connected: 
 }
 
 // ---------- live view ----------
+type LiveState = { segments: Segment[]; flags: Flag[]; badge: number }
+
 function Live({
   status,
-  setStatus,
+  live,
   refresh,
-  setConnected,
   setError,
 }: {
   status: Status | null
-  setStatus: (s: Status) => void
+  live: LiveState
   refresh: () => Promise<void>
-  setConnected: (b: boolean) => void
   setError: (e: string | null) => void
 }) {
+  const { segments, flags, badge } = live
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState('')
   const [newCourse, setNewCourse] = useState('')
-  const [segments, setSegments] = useState<Segment[]>([])
-  const [flags, setFlags] = useState<Flag[]>([])
-  const [badge, setBadge] = useState(0)
   const [busy, setBusy] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    refresh().catch((e) => setError(String(e)))
-    api<Course[]>('/api/courses').then((c) => {
-      setCourses(c)
-      setCourseId((cur) => cur || (c[0]?.id ?? ''))
-    })
-  }, [refresh, setError])
-
-  useEffect(() => {
-    let ws: WebSocket | null = null
-    let timer: number | undefined
-    let closed = false
-    const connect = () => {
-      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`)
-      ws.onopen = () => setConnected(true)
-      ws.onclose = () => {
-        setConnected(false)
-        if (!closed) timer = window.setTimeout(connect, 1500)
-      }
-      ws.onmessage = (m) => {
-        const ev = JSON.parse(m.data)
-        if (ev.type === 'hello') {
-          setStatus(ev)
-          setBadge(ev.badge)
-        } else if (ev.type === 'segment') {
-          setSegments((s) => [...s, ev.segment])
-          if (ev.badge !== undefined) setBadge(ev.badge)
-        } else if (ev.type === 'flag') setFlags((f) => [...f, ev.flag])
-        else if (ev.type === 'lecture_started') {
-          setSegments([])
-          setFlags([])
-          setBadge(0)
-          refresh()
-        } else refresh()
-      }
-    }
-    connect()
-    return () => {
-      closed = true
-      window.clearTimeout(timer)
-      ws?.close()
-    }
-  }, [refresh, setConnected, setStatus])
-
-  useEffect(() => {
-    if (!status?.recording) return
-    const t = window.setInterval(() => refresh().catch(() => undefined), 5000)
-    return () => window.clearInterval(t)
-  }, [status?.recording, refresh])
+    api<Course[]>('/api/courses')
+      .then((c) => {
+        setCourses(c)
+        setCourseId((cur) => cur || (c[0]?.id ?? ''))
+      })
+      .catch((e) => setError(String(e)))
+  }, [setError])
 
   useEffect(() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight }), [segments.length])
 
@@ -309,8 +336,17 @@ function Live({
             <span className={`rec ${status?.paused ? 'paused' : ''}`}>
               {status?.paused ? 'PAUSED' : 'RECORDING'} · {fmt(status?.elapsed_s ?? 0)}
             </span>
-            <button className="flag" onClick={() => run(() => api('/api/lectures/flag', { method: 'POST' }))} disabled={busy}>
-              I didn't get that (F9)
+            <button
+              className="flag"
+              onClick={() => run(() => api('/api/lectures/flag', { method: 'POST' }))}
+              onPointerMove={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                e.currentTarget.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`)
+                e.currentTarget.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`)
+              }}
+              disabled={busy}
+            >
+              I didn't get that <kbd>F9</kbd>
             </button>
             <button onClick={() => run(() => api('/api/lectures/pause', { method: 'POST' }))} disabled={busy}>
               {status?.paused ? 'Resume (F10)' : 'Pause (F10)'}
@@ -326,12 +362,28 @@ function Live({
       </section>
       <main>
         <section className="transcript" ref={listRef}>
-          {segments.length === 0 && <p className="muted">{recording ? 'Listening…' : 'Start a lecture to see the live transcript.'}</p>}
+          {segments.length === 0 && (
+            <div className="empty">
+              {recording ? (
+                <>
+                  <b>Listening</b>
+                  <span>The transcript appears here as it is spoken.</span>
+                </>
+              ) : (
+                <>
+                  <b>Pick a course and start the lecture</b>
+                  <span>
+                    Everything stays on this laptop. <kbd>F9</kbd> marks a moment you didn't get, <kbd>F10</kbd> pauses.
+                  </span>
+                </>
+              )}
+            </div>
+          )}
           {segments.map((s) => (
             <p key={s.id} className={s.trigger.length ? 'hit' : ''} title={`conf ${s.conf}`}>
               <span className="t">{fmt(s.t0)}</span>
-              {s.text}
-              {s.trigger.length > 0 && <span className="terms">{s.trigger.join(', ')}</span>}
+              <span className="tx">{s.text}</span>
+              {s.trigger.length > 0 && <span className="terms">might be a deadline: {s.trigger.join(', ')}</span>}
             </p>
           ))}
         </section>
@@ -549,8 +601,8 @@ function Inbox({ setError }: { setError: (e: string | null) => void }) {
   return (
     <main className="inbox">
       <section>
-        <h2>Ready to confirm ({oneTap.length})</h2>
-        {oneTap.length === 0 && <p className="muted">Nothing waiting. Run “Extract deadlines” on a lecture.</p>}
+        <h2>Ready ({oneTap.length})</h2>
+        {oneTap.length === 0 && <p className="muted">Nothing waiting. Open a lecture and choose Find deadlines.</p>}
         {oneTap.map((s) => (
           <Card key={s.id} s={s}>
             <button className="primary" onClick={() => act(s.id, 'confirm')} disabled={busy === s.id}>
@@ -562,8 +614,8 @@ function Inbox({ setError }: { setError: (e: string | null) => void }) {
           </Card>
         ))}
 
-        <h2>Check these ({maybe.length})</h2>
-        {maybe.length === 0 && <p className="muted">Nothing uncertain.</p>}
+        <h2>Needs a date ({maybe.length})</h2>
+        {maybe.length === 0 && <p className="muted">Nothing needs a date.</p>}
         {maybe.map((s) => (
           <Card key={s.id} s={s}>
             <input type="date" value={dates[s.id] ?? s.payload.date ?? ''} onChange={(e) => setDates((d) => ({ ...d, [s.id]: e.target.value }))} />
@@ -578,7 +630,7 @@ function Inbox({ setError }: { setError: (e: string | null) => void }) {
       </section>
       <aside>
         <h2>Targets</h2>
-        {targets.length === 0 && <p className="muted small">No external targets enabled (set LC_TARGETS=gcal,notion). Confirmed items export as .ics.</p>}
+        {targets.length === 0 && <p className="muted small">Calendar and Notion aren't connected, so confirmed items are downloaded as .ics. The README explains how to connect them.</p>}
         {targets.map((t) => (
           <p key={t.name} className="small">
             <span className={`pill ${t.connected ? 'ok' : t.configured ? 'warn' : 'bad'}`}>{t.name === 'gcal' ? 'Google Calendar' : 'Notion'}</span> {t.detail}
@@ -640,17 +692,26 @@ function Inbox({ setError }: { setError: (e: string | null) => void }) {
 }
 
 // ---------- lectures view ----------
-function Lectures({ setError, llmAvailable }: { setError: (e: string | null) => void; llmAvailable: boolean }) {
+function Lectures({ setError, llmAvailable, initialId }: { setError: (e: string | null) => void; llmAvailable: boolean; initialId: string | null }) {
   const [rows, setRows] = useState<LectureRow[]>([])
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelectedState] = useState<string | null>(initialId)
+  const setSelected = (id: string | null) => {
+    setSelectedState(id)
+    history.replaceState(null, '', id ? `#lectures/${id}` : '#lectures')
+  }
   useEffect(() => {
-    api<LectureRow[]>('/api/lectures').then(setRows).catch((e) => setError(String(e)))
+    api<LectureRow[]>('/api/lectures')
+      .then((r) => {
+        setRows(r)
+        setSelectedState((s) => s ?? r[0]?.id ?? null)
+      })
+      .catch((e) => setError(String(e)))
   }, [setError])
   return (
     <main className="lectures">
       <aside>
-        <h2>Past lectures</h2>
-        {rows.length === 0 && <p className="muted">None yet.</p>}
+        <h2>Lectures</h2>
+        {rows.length === 0 && <p className="muted">No lectures yet. Record one from Live.</p>}
         {rows.map((r) => (
           <p key={r.id} className={`row ${selected === r.id ? 'sel' : ''}`} onClick={() => setSelected(r.id)}>
             <b>{r.course_name}</b>
@@ -661,7 +722,7 @@ function Lectures({ setError, llmAvailable }: { setError: (e: string | null) => 
           </p>
         ))}
       </aside>
-      <section className="detail">{selected ? <LectureDetail id={selected} setError={setError} llmAvailable={llmAvailable} /> : <p className="muted">Select a lecture.</p>}</section>
+      <section className="detail">{selected ? <LectureDetail id={selected} setError={setError} llmAvailable={llmAvailable} /> : <p className="muted">Pick a lecture on the left.</p>}</section>
     </main>
   )
 }
@@ -735,9 +796,19 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
       <h2>
         {L.course_name} · {when(L.started_at)}
       </h2>
-      <p className="muted">
-        {L.status} · {L.asr_model} · rtf p95 {L.asr_rtf_p95 ?? '–'} · {L.power_state}
-        {drain !== null ? ` · battery −${drain}%` : ''} · {d.segments.length} segments · {d.flags.length} flags · {d.gaps.length} gaps · Claude ${totalCost.toFixed(3)}
+      <p className="muted small">
+        {[
+          L.status,
+          L.asr_model ? `${L.asr_model} on ${L.power_state}` : null,
+          L.asr_rtf_p95 ? `speech-to-text at ${(1 / L.asr_rtf_p95).toFixed(0)}× real time` : null,
+          drain !== null && drain > 0 ? `battery −${drain}%` : null,
+          `${d.segments.length} lines`,
+          `${d.flags.length} flag${d.flags.length === 1 ? '' : 's'}`,
+          d.gaps.length ? `${d.gaps.length} gap${d.gaps.length === 1 ? '' : 's'}` : null,
+          totalCost > 0 ? `model spend $${totalCost.toFixed(3)}` : 'model spend $0',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       </p>
 
       <div className="controls">
@@ -777,7 +848,7 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
           ))}
         </select>
         <label className="upload">
-          Upload PDF/PPTX
+          Add slides (PDF or PPTX)
           <input
             type="file"
             accept=".pdf,.pptx"
@@ -796,11 +867,11 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
         </label>
         {d.deck && !d.deck.indexed && (
           <button onClick={() => run('index', () => api(`/api/decks/${d.deck!.id}/index`, { method: 'POST' }))} disabled={busy !== null || !llmAvailable}>
-            Build slide index (Claude)
+            Index the slides
           </button>
         )}
         <button onClick={() => run('align', async () => setAlign(await api(`/api/lectures/${id}/align`, { method: 'POST' })))} disabled={busy !== null || !d.deck}>
-          Align transcript to slides
+          Match transcript to slides
         </button>
       </div>
       {align && (
@@ -814,9 +885,9 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
       <h3>Deadlines</h3>
       <div className="controls">
         <button onClick={() => run('extract', async () => setExtract(await api(`/api/lectures/${id}/extract`, { method: 'POST' })))} disabled={busy !== null || !llmAvailable}>
-          {busy === 'extract' ? 'Extracting…' : 'Extract deadlines (model)'}
+          {busy === 'extract' ? 'Looking…' : 'Find deadlines'}
         </button>
-        {!llmAvailable && <span className="muted">No model provider available.</span>}
+        {!llmAvailable && <span className="muted">No model is set up yet; see the README.</span>}
         {extract && (
           <span className="muted">
             {extract.note ??
@@ -829,7 +900,7 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
       <h3>Recap</h3>
       <div className="controls">
         <button className={d.recap ? '' : 'primary'} onClick={() => run('recap', () => api(`/api/lectures/${id}/recap`, { method: 'POST' }))} disabled={busy !== null || !llmAvailable}>
-          {busy === 'recap' ? (progress ? `Working… ${progress.done}/${progress.total} (${progress.stage})` : 'Starting…') : d.recap ? 'Regenerate recap' : 'Generate recap (model)'}
+          {busy === 'recap' ? (progress ? `Writing… ${progress.done}/${progress.total} (${progress.stage})` : 'Starting…') : d.recap ? 'Write recap again' : 'Write recap'}
         </button>
         {d.recap && (
           <span className="muted">
@@ -845,7 +916,7 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
       {d.recap && (
         <div className="recap">
           <h4>{d.recap.sections.title}</h4>
-          {d.recap.sections.gaps_note && <p className="warn-text small">Recording note: {d.recap.sections.gaps_note}</p>}
+          {d.recap.sections.gaps_note && <p className="warn-text small">Recording gap: {d.recap.sections.gaps_note}</p>}
           <h5>Highlights</h5>
           <ul>
             {d.recap.sections.highlights.map((h, i) => (
@@ -934,7 +1005,7 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
       <h3>Whiteboard photos</h3>
       <div className="controls">
         <label className="upload">
-          Import photos
+          Add board photos
           <input
             type="file"
             accept="image/*"
@@ -950,7 +1021,7 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
             }}
           />
         </label>
-        {!llmAvailable && <span className="muted">Needs the Claude API key (photos are read once and never stored).</span>}
+        {!llmAvailable && <span className="muted">Needs a model. Photos are read once and never stored.</span>}
         {busy === 'photos' && <span className="muted">Reading photos…</span>}
       </div>
       {d.captures.map((c) => (
@@ -972,8 +1043,8 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
           return (
             <p key={s.id} id={`seg-${s.id}`} className={`${flagged ? 'flagged' : s.trigger_terms.length ? 'hit' : ''} ${lit ? 'lit' : ''}`}>
               <span className="t">{fmt(s.t0)}</span>
-              {slide ? <span className="slide">s{slide}</span> : null}
-              {s.text}
+              {slide ? <span className="slide">slide {slide}</span> : null}
+              <span className="tx">{s.text}</span>
             </p>
           )
         })}

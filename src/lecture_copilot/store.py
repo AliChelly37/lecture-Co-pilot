@@ -591,7 +591,8 @@ class Store:
         usage = self.usage_by_stage()
         asr = self.one(
             "SELECT AVG(asr_rtf_p95) AS rtf, AVG(CASE WHEN power_state='battery' AND battery_start IS NOT NULL AND battery_end IS NOT NULL"
-            " THEN (battery_start - battery_end) * 3600.0 / MAX(1, (julianday(ended_at) - julianday(started_at)) * 86400) END) AS drain_per_hour,"
+            " AND (julianday(ended_at) - julianday(started_at)) * 86400 >= 600"  # a rate needs at least 10 minutes to mean anything
+            " THEN (battery_start - battery_end) * 3600.0 / ((julianday(ended_at) - julianday(started_at)) * 86400) END) AS drain_per_hour,"
             " SUM((julianday(ended_at) - julianday(started_at)) * 24) AS hours FROM lectures WHERE ended_at IS NOT NULL"
         )
         return {

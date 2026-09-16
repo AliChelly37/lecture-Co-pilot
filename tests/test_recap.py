@@ -31,6 +31,61 @@ def test_pick_excerpts_by_overlap() -> None:
     assert pick_excerpts(chunks, "???", k=2) == chunks[:2]  # no usable tokens: fall back to the start
 
 
+def test_normalise_recap_cleans_small_model_output() -> None:
+    from lecture_copilot.recap import clean_sources, clean_text, normalise_recap
+
+    assert (
+        clean_text("**Key Concept: Fugacity** - effective pressure [slide 00:02] and [01:36].")
+        == "Key Concept: Fugacity - effective pressure (t=00:02) and (t=01:36)."
+    )
+    assert clean_text("- leading bullet *emph*") == "leading bullet emph"
+    assert clean_sources(
+        ["slide 00:00", "00:02", "t=1:05", "[01:36]", "slide 3", "board 1", "board 9", "nonsense"], has_deck=True, n_boards=1
+    ) == [
+        "t=00:00",
+        "t=00:02",
+        "t=01:05",
+        "t=01:36",
+        "slide 3",
+        "board 1",
+    ]
+    assert clean_sources(["slide 3"], has_deck=False, n_boards=0) == []
+
+    sections = {
+        "title": "**Recap**",
+        "highlights": ["**A** [slide 00:01]", ""],
+        "concepts": [{"name": "Z", "importance": "high", "explanation": "x [00:09]", "sources": ["slide 00:09", "slide 2"]}],
+        "review_questions": [{"question": "q?", "answer": "**a**", "sources": ["03:00"]}],
+        "off_slide_notes": [],
+        "gaps_note": "The lecture did not cover the derivation.",  # not a recording gap
+        "flag_explanations": [
+            {
+                "flag_id": 1,
+                "t": 96.0,
+                "what_was_confusing": "the integral [01:36]",
+                "explanation": "…",
+                "prerequisite": "",
+                "sources": ["01:36", "slide 19"],
+            }
+        ],
+    }
+    out = normalise_recap(sections, has_deck=False, n_boards=0, has_gaps=False)
+    assert out["title"] == "Recap" and out["highlights"] == ["A (t=00:01)"]
+    # a trailing citation moves into the chips; mid-sentence ones stay readable
+    assert out["concepts"][0]["explanation"] == "x" and out["concepts"][0]["sources"] == ["t=00:09"]
+    from lecture_copilot.recap import split_trailing_sources
+
+    assert split_trailing_sources("Z is one (t=01:30) for ideal gases. t=00:55") == (
+        "Z is one (t=01:30) for ideal gases.",
+        ["t=01:30", "t=00:55"],
+    )
+    assert out["review_questions"][0]["answer"] == "a" and out["review_questions"][0]["sources"] == ["t=03:00"]
+    assert out["gaps_note"] == ""
+    # the trailing citation moved into the chips (deduplicated with the listed source)
+    assert out["flag_explanations"][0]["sources"] == ["t=01:36"]
+    assert out["flag_explanations"][0]["what_was_confusing"] == "the integral"
+
+
 def test_slides_and_boards_in_window() -> None:
     deck = {"slides_text": ["slide one text", "slide two text", "slide three text"]}
     alignment = [
@@ -94,7 +149,7 @@ def test_recap_and_ask_with_fake_model(client: TestClient, monkeypatch: pytest.M
     assert recap["version"] == 1 and recap["sections"]["title"] == "Fugacity"
     assert len(recap["sections"]["chunk_notes"]) == 4
     assert recap["sections"]["flag_explanations"][0]["flag_id"] == 1
-    assert recap["sections"]["concepts"][0]["sources"] == ["t=00:00", "slide 1"]
+    assert recap["sections"]["concepts"][0]["sources"] == ["t=00:00"]  # "slide 1" dropped: this lecture has no deck
     assert state.store.get_lecture(lec["id"])["status"] == "processed"
 
     # Regenerate -> version 2, never overwrites.

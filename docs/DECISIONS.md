@@ -490,6 +490,38 @@ the eval says otherwise)
 
 ---
 
+## D23 - UI design system: dimmed hall, glass panels, one highlighter
+**Date:** 2026-09-16
+**Status:** DECIDED (user asked for liquid-glass, deliberate typography, nothing that reads as generated)
+
+- **Material:** a dimmed lecture hall (ink `#0A0F1E`) with a warm projector beam
+  top-left and faint chalk-dust grain; translucent glass panels with a specular
+  top edge and backdrop blur; a floating glass toolbar with a segmented tab
+  control.
+- **Colour is a whiteboard-marker set**, not one accent: highlighter yellow
+  `#FFD54A` for the flag and anything the student did, marker blue `#6FA0FF`
+  for timestamps and actions, marker red `#FF6A5C` for recording and delete,
+  marker green `#58C99A` for ok.
+- **Type:** Bricolage Grotesque for display (wordmark, section titles, big
+  numbers), IBM Plex Sans for body, IBM Plex Mono for anything measured
+  (timestamps, dates, pills). Loaded from Google Fonts with system fallbacks
+  so an offline lecture hall still works.
+- **Signature:** the highlighter. The flag button is a yellow liquid-glass
+  lozenge whose refraction follows the pointer; flagged transcript is drawn
+  as a highlighter stroke across the words; the flagged moment in the recap
+  sits in a yellow glass panel.
+- **Copy rules:** sentence case, plain verbs that name what happens ("Find
+  deadlines", "Write recap", "Ready", "Needs a date"); empty states say what
+  to do next; errors say what went wrong.
+- **Routes:** `#lectures`, `#lectures/<id>`, `#inbox`, `#dashboard` (also lets
+  the redesign be screenshot-checked headlessly).
+- Reviewed against headless screenshots; recap output from the local model is
+  normalised in code (markdown stripped, inline `[01:36]` and bare `t=..`
+  citations folded into source chips, invented slide/board sources dropped,
+  `gaps_note` kept only when the recording had gaps).
+
+---
+
 ## Open items
 - Cloudflare token permissions (user action) before the cloud provider can be tested.
 - ~~Local context budget~~ resolved: 16K on gemma3:4b; lecture chunking is part of M3/M4.

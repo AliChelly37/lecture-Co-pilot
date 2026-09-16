@@ -12,6 +12,7 @@ the UI can jump to the evidence and the eval can check faithfulness.
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -177,10 +178,82 @@ def boards_in(captures: list[dict], t0: float, t1: float, slack: float = 120.0) 
     return out
 
 
+# -- output normalisation ------------------------------------------------------
+# Small models leak markdown, write sources as "[slide 01:36]" inside the text,
+# and cite slides that don't exist. Every recap goes through this before it is
+# stored, so the UI and the exports never depend on prompt compliance.
+_MD = re.compile(r"(\*\*|__|(?<!\w)\*(?!\s)|(?<!\s)\*(?!\w))")
+_INLINE_SRC = re.compile(r"\[\s*(?:slide\s+|t\s*=\s*)?(\d{1,3}:\d{2})\s*\]")
+_TIME = re.compile(r"^(?:slide\s+|t\s*=\s*|at\s+)?(\d{1,3}):(\d{2})$")
+_SLIDE = re.compile(r"^slide\s+(\d{1,3})$")
+_BOARD = re.compile(r"^board\s+(\d{1,3})$")
+
+
+_BARE_T = re.compile(r"(?<![\w(])t\s*=\s*(\d{1,3}:\d{2})(?![\w)])")
+_TRAILING_T = re.compile(r"(?:\s*\(t=\d{1,3}:\d{2}\)\s*[.,;]?)+\s*$")
+
+
+def clean_text(text: str) -> str:
+    text = _MD.sub("", text or "")
+    text = _INLINE_SRC.sub(lambda m: f"(t={m.group(1)})", text)
+    text = _BARE_T.sub(lambda m: f"(t={m.group(1)})", text)
+    text = re.sub(r"^\s*[-•]\s+", "", text)
+    return re.sub(r"[ \t]+", " ", text).strip()
+
+
+def split_trailing_sources(text: str) -> tuple[str, list[str]]:
+    """'... at low pressure. (t=00:55)' -> ('... at low pressure.', ['t=00:55']).
+    Mid-sentence citations stay in the text; only the trailing run moves."""
+    text = clean_text(text)
+    found = [f"t={m}" for m in re.findall(r"\(t=(\d{1,3}:\d{2})\)", text)]
+    return _TRAILING_T.sub("", text).strip(), found
+
+
+def clean_sources(sources: list[str] | None, has_deck: bool, n_boards: int) -> list[str]:
+    out: list[str] = []
+    for raw in sources or []:
+        s = (raw or "").strip().strip("[]()").strip().lower()
+        m = _TIME.match(s)
+        if m:
+            src = f"t={int(m.group(1)):02d}:{m.group(2)}"
+        elif (m := _SLIDE.match(s)) and has_deck:
+            src = f"slide {int(m.group(1))}"
+        elif (m := _BOARD.match(s)) and 0 < int(m.group(1)) <= n_boards:
+            src = f"board {int(m.group(1))}"
+        else:
+            continue
+        if src not in out:
+            out.append(src)
+    return out
+
+
+def normalise_recap(sections: dict, has_deck: bool, n_boards: int, has_gaps: bool) -> dict:
+    s = dict(sections)
+    s["title"] = clean_text(s.get("title", ""))
+    s["highlights"] = [clean_text(h) for h in s.get("highlights", []) if clean_text(h)]
+    s["off_slide_notes"] = [clean_text(n) for n in s.get("off_slide_notes", []) if clean_text(n)]
+    s["gaps_note"] = clean_text(s.get("gaps_note", "")) if has_gaps else ""
+    for c in s.get("concepts", []):
+        c["name"] = clean_text(c.get("name", ""))
+        c["explanation"], cited = split_trailing_sources(c.get("explanation", ""))
+        c["sources"] = clean_sources(list(c.get("sources") or []) + cited, has_deck, n_boards)
+    for q in s.get("review_questions", []):
+        q["question"] = clean_text(q.get("question", ""))
+        q["answer"], cited = split_trailing_sources(q.get("answer", ""))
+        q["sources"] = clean_sources(list(q.get("sources") or []) + cited, has_deck, n_boards)
+    for f in s.get("flag_explanations", []):
+        cited_all: list[str] = []
+        for key in ("what_was_confusing", "explanation", "prerequisite"):
+            if key in f:
+                f[key], cited = split_trailing_sources(f[key])
+                cited_all += cited
+        if "sources" in f:
+            f["sources"] = clean_sources(list(f.get("sources") or []) + cited_all, has_deck, n_boards)
+    return s
+
+
 def pick_excerpts(chunks: list[Chunk], question: str, k: int = 3) -> list[Chunk]:
     """Lexical overlap between the question and each chunk; no embeddings needed."""
-    import re
-
     q = set(re.findall(r"[a-z0-9]{3,}", question.lower()))
     if not q:
         return chunks[:k]
