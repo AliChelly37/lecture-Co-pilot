@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Lecture Co-Pilot: local data and secrets (text only, but private)
+data/
+.env
+*.log
+
+# Raw media never belongs in git; keep the synthetic fixture's transcript only
+eval/fixtures/*.wav
+eval/data/
+*.sqlite3*

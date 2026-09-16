@@ -1,0 +1,79 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --text: #e6e6e6;
+  --muted: #8a8f9a;
+  --accent: #5b8def;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --hit: #3b2f1a;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+
+.app { max-width: 1100px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 100vh; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 1.25rem; margin: 0; }
+h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { font-size: 0.8rem; padding: 3px 8px; border-radius: 999px; background: var(--panel); border: 1px solid #262a33; }
+.pill.ok { border-color: var(--ok); }
+.pill.warn { border-color: var(--warn); }
+.pill.bad { border-color: var(--bad); }
+
+.error { background: #3a1d1d; border: 1px solid var(--bad); padding: 8px 12px; border-radius: 6px; }
+
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--panel); padding: 10px; border-radius: 8px; }
+select, input { background: #0f1115; color: var(--text); border: 1px solid #2a2f3a; border-radius: 6px; padding: 8px; }
+button { background: #232733; color: var(--text); border: 1px solid #2a2f3a; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.flag { background: #6f3fd6; border-color: #6f3fd6; color: #fff; font-weight: 600; }
+button.danger { border-color: var(--bad); }
+
+.rec { font-weight: 700; color: var(--bad); }
+.rec::before { content: '●'; margin-right: 6px; animation: blink 1.2s infinite; }
+.rec.paused { color: var(--warn); }
+.rec.paused::before { animation: none; }
+@keyframes blink { 50% { opacity: 0.3; } }
+
+.badge { margin-left: auto; background: #2b2f3a; padding: 4px 10px; border-radius: 999px; font-size: 0.85rem; }
+
+main { display: grid; grid-template-columns: 1fr 280px; gap: 12px; flex: 1; min-height: 0; }
+@media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+
+.transcript, aside { background: var(--panel); border-radius: 8px; padding: 12px; }
+.transcript { height: 60vh; overflow-y: auto; }
+.transcript p { margin: 0 0 8px; line-height: 1.45; padding: 4px 6px; border-radius: 4px; }
+.transcript p.hit { background: var(--hit); }
+.t { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 8px; font-size: 0.85rem; }
+.terms { display: block; color: var(--warn); font-size: 0.75rem; margin-top: 2px; }
+.muted { color: var(--muted); }
+footer { font-size: 0.8rem; text-align: center; padding: 8px 0; }
+
+/* tabs */
+nav { display: flex; gap: 4px; }
+.tab { background: transparent; border-color: transparent; color: var(--muted); }
+.tab.active { color: var(--text); border-color: #2a2f3a; background: var(--panel); }
+
+/* lectures view */
+main.lectures { grid-template-columns: 280px 1fr; }
+@media (max-width: 760px) { main.lectures { grid-template-columns: 1fr; } }
+.row { cursor: pointer; padding: 6px; border-radius: 4px; margin: 0 0 4px; }
+.row:hover { background: #20242e; }
+.row.sel { background: #262b38; }
+.detail { background: var(--panel); border-radius: 8px; padding: 12px; overflow-y: auto; max-height: 80vh; }
+.detail h3 { font-size: 0.9rem; margin: 16px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.detail .controls { background: #12151b; }
+.upload { display: inline-block; background: #232733; border: 1px solid #2a2f3a; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+.upload:has(input:disabled) { opacity: 0.5; cursor: default; }
+.transcript.tall { height: 50vh; }
+.transcript p.flagged { background: #2a1f3d; border-left: 3px solid #6f3fd6; }
+.slide { display: inline-block; background: #1f2a3d; color: #9cc0ff; font-size: 0.7rem; padding: 1px 5px; border-radius: 3px; margin-right: 6px; }
+.capture { margin: 0 0 8px; padding: 6px; background: #12151b; border-radius: 4px; }
+.pre { display: block; white-space: pre-wrap; margin-top: 4px; font-size: 0.9rem; }
