@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     flag_lookback_s: float = 90.0
     flag_lookahead_s: float = 15.0
 
+    # Post-lecture extraction (D15/D21): window size for the local provider; cloud providers use one window.
+    extract_window_s: float = 600.0
+    extract_overlap_s: float = 60.0
+
     # Privacy defaults (D19).
     transcript_retention_days: int = 30
 

@@ -459,6 +459,38 @@ prefix is Anthropic-only.
 
 ---
 
+## D22 - Suggestion trust policy (M3)
+**Date:** 2026-09-16
+**Status:** DECIDED by default (thresholds are settings-free constants until
+the eval says otherwise)
+
+- **Tiers.** `one_tap` requires all of: intent `commitment` or `correction`,
+  model confidence >= 0.7, ASR confidence of the evidence segment >= 0.5,
+  a resolved date with resolver confidence >= 0.6, the date not in the past,
+  and no `course_hint`. Everything else that isn't log-only is `maybe`: the
+  card shows the quote and asks for a date, and can't be one-tapped.
+  `hypothetical`, `joke`, `past_reference`, duplicates and superseded
+  candidates are log-only (kept in `candidate_events` for the eval).
+- **Dates in code (D9), future-preferring.** A bare "September 1" said in
+  mid-September resolves to next year; "next Thursday" said on a Thursday
+  means the following week; "week 7" needs the term calendar and "next time"
+  needs the course schedule, otherwise the item is `maybe` with an honest
+  note. Every resolution carries the arithmetic as text for the card.
+- **Corrections supersede.** A `correction` with a matching type and title
+  hides the commitment it corrects (measured on the fixture: the midterm
+  surfaces as Oct 21, never Oct 14). Duplicates across windows keep the more
+  confident one. Title matching normalises number words ("four" = "4").
+- **Idempotent.** Suggestions are keyed by course + type + normalised title +
+  resolved date; re-running extraction never duplicates a card.
+- **Local chunking.** 10-minute windows with 60 s overlap on the local
+  provider (16K context); one window on cloud providers. Keyword-filter hits
+  are passed as hints, not as decisions.
+- **Export before integrations.** Until M5, a confirmed suggestion exports
+  as `.ics`; confirming never writes anywhere by itself.
+
+---
+
 ## Open items
 - Cloudflare token permissions (user action) before the cloud provider can be tested.
 - ~~Local context budget~~ resolved: 16K on gemma3:4b; lecture chunking is part of M3/M4.
+- Tier thresholds (D22) are unvalidated constants until the OCW eval (M6).

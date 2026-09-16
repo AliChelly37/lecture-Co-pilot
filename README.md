@@ -18,7 +18,7 @@ and the model-provider benchmark in [docs/LLM_BENCHMARK.md](docs/LLM_BENCHMARK.m
 - [x] M0 Whisper benchmark on the target laptop
 - [x] M1 Local capture: mic, VAD, Whisper (GPU/CPU), live transcript, hotkey flag, deadline badge
 - [x] M2 Deck ingestion (PDF/PPTX text), photo import (EXIF), board OCR, slide alignment, Lectures view
-- [ ] M3 Post-lecture deadline extraction and suggestion inbox
+- [x] M3 Post-lecture deadline extraction (chunked for the local model), date resolution in code, suggestion inbox with one-tap / check-me tiers, .ics export
 - [ ] M4 Recap and ask-the-lecture
 - [ ] M5 Google Calendar and Notion targets (confirm-before-write)
 - [ ] M6 Eval harness on MIT OCW lectures, cost chart
@@ -50,6 +50,12 @@ Optional cloud providers (set `LC_LLM_PROVIDER` in a gitignored `.env`):
 `anthropic` (needs `ANTHROPIC_API_KEY`). Capture and transcription work with
 no model provider at all.
 Hotkeys while recording: **F9** flag, **F10** pause/resume.
+
+After a lecture: open **Lectures**, attach the slide deck and import board photos,
+then **Extract deadlines**. Detected items land in **Inbox**: ready ones confirm
+with one tap, uncertain ones ask you for a date first. Nothing is ever written
+anywhere without that tap; confirmed items export as `.ics` (calendar and
+Notion targets come in M5).
 
 Settings are environment variables prefixed `LC_` (or a `.env` file), e.g.
 `LC_ASR_MODEL_AC=small`. See `src/lecture_copilot/config.py`.

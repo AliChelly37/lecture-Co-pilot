@@ -105,3 +105,36 @@ def test_deck_index_and_photo_reading_locally(client: TestClient) -> None:
     stages = {u["stage"] for u in usage}
     assert {"slide_index", "board_ocr"} <= stages
     assert all(u["cost_usd"] == 0 for u in usage)
+
+
+def test_extraction_locally(client: TestClient) -> None:
+    """The fixture transcript through the real local model: the two real
+    deadlines must reach the inbox with plausible dates; the joke must not."""
+    from lecture_copilot.api import state
+
+    course = client.post(
+        "/api/courses", json={"name": "Thermo", "timezone": "Europe/Paris", "term_calendar": {"week1_start": "2026-09-07"}}
+    ).json()
+    lec = state.store.start_lecture(course["id"], "gemma3:4b", "cuda", "ac", None)
+    text = (Path(__file__).resolve().parents[1] / "eval/fixtures/tts_lecture.txt").read_text(encoding="utf-8")
+    t = 0.0
+    for sentence in [s.strip() for s in text.replace("\n", " ").split(". ") if s.strip()]:
+        dur = max(2.0, len(sentence.split()) / 2.5)
+        state.store.add_segment(lec["id"], t, t + dur, sentence, 0.85, "gemma3:4b", 0, [])
+        t += dur + 0.5
+    state.store.end_lecture(lec["id"], 0.1, None)
+
+    r = client.post(f"/api/lectures/{lec['id']}/extract")
+    assert r.status_code == 200, r.text
+    summary = r.json()
+    assert summary["candidates"] >= 3, summary
+
+    inbox = client.get("/api/suggestions").json()
+    titles = " | ".join(s["payload"]["title"].lower() for s in inbox)
+    assert "problem set" in titles or "ps" in titles, titles
+    assert "midterm" in titles, titles
+    midterm = next(s for s in inbox if "midterm" in s["payload"]["title"].lower())
+    assert midterm["payload"]["date"] == "2026-10-21", midterm["payload"]  # the corrected date, not the 14th
+    assert not any("navier" in s["payload"]["title"].lower() or "joke" in s["payload"]["title"].lower() for s in inbox)
+    for s in inbox:
+        assert s["payload"]["t0"] is not None, s["payload"]  # evidence located on the timeline

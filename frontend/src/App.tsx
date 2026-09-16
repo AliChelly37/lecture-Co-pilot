@@ -28,6 +28,28 @@ type Flag = { id: number; t: number; window_t0: number; window_t1: number }
 type LectureRow = { id: string; course_name: string; started_at: string; ended_at: string | null; status: string; asr_model: string }
 type Deck = { id: string; filename: string; slide_count: number; indexed: boolean }
 type Capture = { id: string; t_shutter: number | null; content_kind: string | null; text: string | null; legibility: number | null; status: string }
+type Suggestion = {
+  id: string
+  tier: 'one_tap' | 'maybe'
+  state: string
+  payload: {
+    title: string
+    type: string
+    intent: string
+    date: string | null
+    time: string | null
+    date_expression: string
+    resolution_note: string
+    evidence_quote: string
+    t0: number | null
+    confidence: number
+    asr_conf: number
+    course_hint: string
+    course_name: string
+    lecture_id: string
+  }
+}
+type ExtractSummary = { chunks: number; candidates: number; surfaced: number; suggestions: { one_tap: number; maybe: number; log: number; existing: number }; note?: string }
 type Detail = {
   lecture: LectureRow & { deck_id: string | null; power_state: string; battery_start: number | null; battery_end: number | null; asr_rtf_p95: number | null }
   segments: { id: number; t0: number; t1: number; text: string; trigger_terms: string[]; trigger_score: number }[]
@@ -36,6 +58,7 @@ type Detail = {
   deck: Deck | null
   captures: Capture[]
   alignment: { t0: number; t1: number; slide: number | null; score: number }[]
+  suggestions: Suggestion[]
   usage: { stage: string; model: string; calls: number; cost_usd: number; cache_read: number; input_tokens: number }[]
 }
 
@@ -51,7 +74,7 @@ const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'cont
 
 // ---------- app shell ----------
 export default function App() {
-  const [view, setView] = useState<'live' | 'lectures'>('live')
+  const [view, setView] = useState<'live' | 'lectures' | 'inbox'>('live')
   const [status, setStatus] = useState<Status | null>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +91,9 @@ export default function App() {
           <button className={view === 'lectures' ? 'tab active' : 'tab'} onClick={() => setView('lectures')}>
             Lectures
           </button>
+          <button className={view === 'inbox' ? 'tab active' : 'tab'} onClick={() => setView('inbox')}>
+            Inbox
+          </button>
         </nav>
         <StatusPills status={status} connected={connected} />
       </header>
@@ -76,11 +102,9 @@ export default function App() {
           {error}
         </div>
       )}
-      {view === 'live' ? (
-        <Live status={status} setStatus={setStatus} refresh={refresh} setConnected={setConnected} setError={setError} />
-      ) : (
-        <Lectures setError={setError} llmAvailable={!!status?.llm_available} />
-      )}
+      {view === 'live' && <Live status={status} setStatus={setStatus} refresh={refresh} setConnected={setConnected} setError={setError} />}
+      {view === 'lectures' && <Lectures setError={setError} llmAvailable={!!status?.llm_available} />}
+      {view === 'inbox' && <Inbox setError={setError} />}
       <footer className="muted">Audio never leaves this laptop. Nothing is sent anywhere during class.</footer>
     </div>
   )
@@ -275,6 +299,125 @@ function Live({
   )
 }
 
+// ---------- inbox view ----------
+function Inbox({ setError }: { setError: (e: string | null) => void }) {
+  const [proposed, setProposed] = useState<Suggestion[]>([])
+  const [confirmed, setConfirmed] = useState<Suggestion[]>([])
+  const [busy, setBusy] = useState<string | null>(null)
+  const [dates, setDates] = useState<Record<string, string>>({})
+
+  const load = useCallback(async () => {
+    setProposed(await api<Suggestion[]>('/api/suggestions?state_filter=proposed'))
+    setConfirmed(await api<Suggestion[]>('/api/suggestions?state_filter=confirmed'))
+  }, [])
+  useEffect(() => {
+    load().catch((e) => setError(String(e)))
+  }, [load, setError])
+
+  const act = async (id: string, action: string, body?: unknown) => {
+    setBusy(id)
+    setError(null)
+    try {
+      await api(`/api/suggestions/${id}/${action}`, body ? json(body) : { method: 'POST' })
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const oneTap = proposed.filter((s) => s.tier === 'one_tap')
+  const maybe = proposed.filter((s) => s.tier === 'maybe')
+
+  const Card = ({ s, children }: { s: Suggestion; children: React.ReactNode }) => {
+    const p = s.payload
+    return (
+      <div className={`card ${s.tier}`}>
+        <div className="card-head">
+          <span className="type">{p.type}</span>
+          <b>{p.title}</b>
+          <span className="muted"> · {p.course_name}</span>
+        </div>
+        <div className="card-date">
+          {p.date ? (
+            <>
+              <b>{p.date}</b>
+              {p.time ? ` ${p.time}` : ''}
+            </>
+          ) : (
+            <span className="warn-text">no date resolved</span>
+          )}
+          <span className="muted"> — {p.resolution_note}</span>
+        </div>
+        <blockquote>
+          {p.t0 !== null && <span className="t">{fmt(p.t0)}</span>}
+          “{p.evidence_quote}”
+        </blockquote>
+        <div className="muted small">
+          intent {p.intent} · model confidence {p.confidence} · audio confidence {p.asr_conf}
+          {p.course_hint ? ` · mentioned for: ${p.course_hint}` : ''}
+        </div>
+        <div className="card-actions">{children}</div>
+      </div>
+    )
+  }
+
+  return (
+    <main className="inbox">
+      <section>
+        <h2>Ready to confirm ({oneTap.length})</h2>
+        {oneTap.length === 0 && <p className="muted">Nothing waiting. Run “Extract deadlines” on a lecture.</p>}
+        {oneTap.map((s) => (
+          <Card key={s.id} s={s}>
+            <button className="primary" onClick={() => act(s.id, 'confirm')} disabled={busy === s.id}>
+              Confirm
+            </button>
+            <button onClick={() => act(s.id, 'dismiss')} disabled={busy === s.id}>
+              Dismiss
+            </button>
+          </Card>
+        ))}
+
+        <h2>Check these ({maybe.length})</h2>
+        {maybe.length === 0 && <p className="muted">Nothing uncertain.</p>}
+        {maybe.map((s) => (
+          <Card key={s.id} s={s}>
+            <input type="date" value={dates[s.id] ?? s.payload.date ?? ''} onChange={(e) => setDates((d) => ({ ...d, [s.id]: e.target.value }))} />
+            <button onClick={() => act(s.id, 'date', { date: dates[s.id] ?? s.payload.date })} disabled={busy === s.id || !(dates[s.id] ?? s.payload.date)}>
+              Set date
+            </button>
+            <button onClick={() => act(s.id, 'dismiss')} disabled={busy === s.id}>
+              Dismiss
+            </button>
+          </Card>
+        ))}
+      </section>
+      <aside>
+        <h2>Confirmed ({confirmed.length})</h2>
+        {confirmed.length > 0 && (
+          <p>
+            <a className="button" href="/api/suggestions/export.ics">
+              Download .ics
+            </a>
+          </p>
+        )}
+        {confirmed.map((s) => (
+          <p key={s.id} className="row">
+            <b>{s.payload.title}</b> · {s.payload.date}
+            {s.payload.time ? ` ${s.payload.time}` : ''}
+            <br />
+            <button className="small" onClick={() => act(s.id, 'undo')} disabled={busy === s.id}>
+              Undo
+            </button>
+          </p>
+        ))}
+        <p className="muted small">Confirming never writes anywhere by itself. Calendar and Notion targets arrive in M5; until then, export .ics.</p>
+      </aside>
+    </main>
+  )
+}
+
 // ---------- lectures view ----------
 function Lectures({ setError, llmAvailable }: { setError: (e: string | null) => void; llmAvailable: boolean }) {
   const [rows, setRows] = useState<LectureRow[]>([])
@@ -307,6 +450,7 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
   const [decks, setDecks] = useState<Deck[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [align, setAlign] = useState<{ coverage: number; off_slide: { t0: number; t1: number }[]; deck_mismatch?: boolean; note?: string } | null>(null)
+  const [extract, setExtract] = useState<ExtractSummary | null>(null)
 
   const load = useCallback(async () => {
     const detail = await api<Detail>(`/api/lectures/${id}`)
@@ -393,6 +537,21 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
           {align.off_slide.length ? ` · off-slide: ${align.off_slide.map((o) => `${fmt(o.t0)}–${fmt(o.t1)}`).join(', ')}` : ''}
         </p>
       )}
+
+      <h3>Deadlines</h3>
+      <div className="controls">
+        <button onClick={() => run('extract', async () => setExtract(await api(`/api/lectures/${id}/extract`, { method: 'POST' })))} disabled={busy !== null || !llmAvailable}>
+          {busy === 'extract' ? 'Extracting…' : 'Extract deadlines (model)'}
+        </button>
+        {!llmAvailable && <span className="muted">No model provider available.</span>}
+        {extract && (
+          <span className="muted">
+            {extract.note ??
+              `${extract.chunks} window${extract.chunks === 1 ? '' : 's'}, ${extract.candidates} mentions → ${extract.suggestions.one_tap} ready, ${extract.suggestions.maybe} to check, ${extract.suggestions.log} ignored${extract.suggestions.existing ? `, ${extract.suggestions.existing} already in inbox` : ''}`}
+          </span>
+        )}
+        {d.suggestions.length > 0 && <span className="muted">{d.suggestions.length} suggestion(s) from this lecture are in the Inbox.</span>}
+      </div>
 
       <h3>Whiteboard photos</h3>
       <div className="controls">

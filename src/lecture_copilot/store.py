@@ -108,15 +108,18 @@ CREATE TABLE IF NOT EXISTS candidate_events (
   confidence REAL NOT NULL,
   resolved_date TEXT, resolution_note TEXT,
   course_hint TEXT,
+  status TEXT NOT NULL DEFAULT 'surfaced',     -- surfaced | duplicate | superseded | log
   created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS suggestions (
   id TEXT PRIMARY KEY,
-  candidate_id TEXT NOT NULL REFERENCES candidate_events(id),
-  target TEXT NOT NULL,                        -- gcal | notion
-  payload TEXT NOT NULL,                       -- JSON
-  state TEXT NOT NULL,
+  candidate_id TEXT NOT NULL,
+  lecture_id TEXT,
+  target TEXT NOT NULL,                        -- local (M3) | gcal | notion (M5)
+  tier TEXT NOT NULL DEFAULT 'maybe',          -- one_tap | maybe
+  payload TEXT NOT NULL,                       -- JSON card content
+  state TEXT NOT NULL,                         -- proposed | confirmed | written | dismissed | superseded | failed_*
   idempotency_key TEXT NOT NULL UNIQUE,
   external_id TEXT,
   supersedes_id TEXT,
@@ -379,6 +382,78 @@ class Store:
                 stop_reason,
                 now_iso(),
             ),
+        )
+
+    # -- candidate events & suggestions (M3) -----------------------------
+    def add_candidate(self, lecture_id: str, c: dict) -> str:
+        cid = new_id()
+        self.execute(
+            "INSERT INTO candidate_events (id, lecture_id, type, title, date_expression, intent, evidence_quote, t0, confidence,"
+            " resolved_date, resolution_note, course_hint, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                cid,
+                lecture_id,
+                c["type"],
+                c["title"],
+                c.get("date_expression"),
+                c["intent"],
+                c["evidence_quote"],
+                c.get("t0"),
+                c["confidence"],
+                c.get("resolved_date"),
+                c.get("resolution_note"),
+                c.get("course_hint"),
+                c.get("status", "surfaced"),
+                now_iso(),
+            ),
+        )
+        return cid
+
+    def candidates(self, lecture_id: str) -> list[dict]:
+        return self.query("SELECT * FROM candidate_events WHERE lecture_id=? ORDER BY t0", (lecture_id,))
+
+    def add_suggestion(self, *, candidate_id: str, lecture_id: str, tier: str, payload: dict, idempotency_key: str) -> str:
+        sid = new_id()
+        self.execute(
+            "INSERT INTO suggestions (id, candidate_id, lecture_id, target, tier, payload, state, idempotency_key, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (sid, candidate_id, lecture_id, "local", tier, json.dumps(payload, ensure_ascii=False), "proposed", idempotency_key, now_iso()),
+        )
+        return sid
+
+    def _suggestion_row(self, row: dict | None) -> dict | None:
+        if row:
+            row["payload"] = json.loads(row["payload"])
+        return row
+
+    def get_suggestion(self, sid: str) -> dict | None:
+        return self._suggestion_row(self.one("SELECT * FROM suggestions WHERE id=?", (sid,)))
+
+    def suggestion_by_key(self, key: str) -> dict | None:
+        return self._suggestion_row(self.one("SELECT * FROM suggestions WHERE idempotency_key=?", (key,)))
+
+    def suggestions(self, state: str | None = None, lecture_id: str | None = None) -> list[dict]:
+        clauses, params = [], []
+        if state:
+            clauses.append("state=?")
+            params.append(state)
+        if lecture_id:
+            clauses.append("lecture_id=?")
+            params.append(lecture_id)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = self.query(f"SELECT * FROM suggestions{where} ORDER BY updated_at DESC", params)
+        return [self._suggestion_row(r) for r in rows]  # type: ignore[misc]
+
+    def set_suggestion_state(self, sid: str, state: str, external_id: str | None = None, error: str | None = None) -> None:
+        self.execute(
+            "UPDATE suggestions SET state=?, external_id=COALESCE(?, external_id), error=?, updated_at=? WHERE id=?",
+            (state, external_id, error, now_iso(), sid),
+        )
+
+    def update_suggestion_payload(self, sid: str, payload: dict, tier: str | None = None) -> None:
+        self.execute(
+            "UPDATE suggestions SET payload=?, tier=COALESCE(?, tier), updated_at=? WHERE id=?",
+            (json.dumps(payload, ensure_ascii=False), tier, now_iso(), sid),
         )
 
     def usage_by_stage(self, lecture_id: str | None = None) -> list[dict]:

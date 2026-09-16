@@ -69,6 +69,113 @@ def test_deck_upload_attach_and_align(client: TestClient) -> None:
     assert r.status_code == 503
 
 
+def test_extract_and_inbox_with_fake_model(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The whole M3 path with the model replaced by canned output: chunking,
+    evidence location, date resolution, merge, tiers, confirm and .ics."""
+    from lecture_copilot.api import state
+    from lecture_copilot.config import settings
+    from lecture_copilot.extract import ChunkExtraction, EventOut
+
+    course = client.post(
+        "/api/courses", json={"name": "Thermo", "timezone": "Europe/Paris", "term_calendar": {"week1_start": "2026-09-07"}}
+    ).json()
+    lec = state.store.start_lecture(course["id"], "gemma3:4b", "cuda", "ac", None)
+    state.store.add_segment(
+        lec["id"], 47.2, 53.5, "Problem Set 4 is due next Thursday at 5 p.m. Submit it through the course website.", 0.84, "g", 1.2, ["due"]
+    )
+    state.store.add_segment(lec["id"], 64.5, 68.5, "The midterm exam is on October 14th.", 0.7, "g", 0.9, ["midterm"])
+    state.store.add_segment(
+        lec["id"], 68.5, 75.0, "Actually, let me correct that, the midterm has moved to October 21st.", 0.7, "g", 0.9, ["moved to"]
+    )
+    state.store.add_segment(lec["id"], 80.0, 85.0, "If this were due tomorrow you would all be panicking.", 0.8, "g", 0.5, [])
+    state.store.end_lecture(lec["id"], 0.1, None)
+
+    canned = ChunkExtraction(
+        events=[
+            EventOut(
+                type="assignment",
+                title="Problem set 4",
+                date_expression="next Thursday",
+                time_expression="5 p.m.",
+                intent="commitment",
+                evidence_quote="Problem Set 4 is due next Thursday at 5 p.m.",
+                confidence=0.95,
+                course_hint="",
+            ),
+            EventOut(
+                type="exam",
+                title="Midterm exam",
+                date_expression="October 14th",
+                time_expression="",
+                intent="commitment",
+                evidence_quote="The midterm exam is on October 14th.",
+                confidence=0.9,
+                course_hint="",
+            ),
+            EventOut(
+                type="exam",
+                title="Midterm exam",
+                date_expression="October 21st",
+                time_expression="",
+                intent="correction",
+                evidence_quote="the midterm has moved to October 21st",
+                confidence=0.95,
+                course_hint="",
+            ),
+            EventOut(
+                type="assignment",
+                title="Problem set 4",
+                date_expression="tomorrow",
+                time_expression="",
+                intent="hypothetical",
+                evidence_quote="If this were due tomorrow you would all be panicking.",
+                confidence=0.9,
+                course_hint="",
+            ),
+            EventOut(
+                type="reading",
+                title="Chapter 11",
+                date_expression="next time",
+                time_expression="",
+                intent="commitment",
+                evidence_quote="reading for next time is chapter eleven",
+                confidence=0.9,
+                course_hint="",
+            ),
+        ]
+    )
+    monkeypatch.setattr(settings, "llm_provider", "ollama")
+    monkeypatch.setattr(state.llm, "structured", lambda **kw: canned)
+
+    r = client.post(f"/api/lectures/{lec['id']}/extract")
+    assert r.status_code == 200, r.text
+    summary = r.json()
+    assert summary["chunks"] == 1 and summary["candidates"] == 5
+    assert summary["suggestions"] == {"one_tap": 2, "maybe": 1, "log": 2, "existing": 0}
+
+    inbox = client.get("/api/suggestions").json()
+    by_title = {s["payload"]["title"]: s for s in inbox}
+    assert by_title["Problem set 4"]["tier"] == "one_tap" and by_title["Problem set 4"]["payload"]["date"] == "2026-09-17"
+    assert by_title["Problem set 4"]["payload"]["time"] == "17:00" and by_title["Problem set 4"]["payload"]["t0"] == 47.2
+    assert by_title["Midterm exam"]["payload"]["date"] == "2026-10-21"  # the correction, not the superseded date
+    assert by_title["Chapter 11"]["tier"] == "maybe" and by_title["Chapter 11"]["payload"]["date"] is None
+
+    # Re-running is idempotent for suggestions.
+    assert client.post(f"/api/lectures/{lec['id']}/extract").json()["suggestions"]["existing"] == 3
+
+    # Maybe tray: needs a date before it can be confirmed.
+    sid = by_title["Chapter 11"]["id"]
+    assert client.post(f"/api/suggestions/{sid}/confirm").status_code == 409
+    assert client.post(f"/api/suggestions/{sid}/date", json={"date": "2026-09-18"}).json()["tier"] == "one_tap"
+    assert client.post(f"/api/suggestions/{sid}/confirm").json()["state"] == "confirmed"
+    assert client.post(f"/api/suggestions/{by_title['Problem set 4']['id']}/dismiss").json()["state"] == "dismissed"
+
+    ics = client.get("/api/suggestions/export.ics")
+    assert ics.status_code == 200 and "Thermo: Chapter 11" in ics.text and "DTSTART;VALUE=DATE:20260918" in ics.text
+    detail = client.get(f"/api/lectures/{lec['id']}").json()
+    assert {c["status"] for c in detail["candidates"]} >= {"surfaced", "superseded", "log"}
+
+
 def test_bad_deck_type(client: TestClient) -> None:
     r = client.post("/api/decks", files={"file": ("notes.txt", b"hello", "text/plain")})
     assert r.status_code == 400

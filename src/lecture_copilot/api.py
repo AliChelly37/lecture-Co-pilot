@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -22,6 +22,7 @@ from lecture_copilot.llm import LlmGateway, LlmUnavailable
 from lecture_copilot.power import SleepGuard
 from lecture_copilot.session import LectureSession
 from lecture_copilot.store import Store
+from lecture_copilot.suggest import SuggestionService
 
 log = logging.getLogger(__name__)
 
@@ -179,6 +180,8 @@ async def get_lecture(lecture_id: str) -> dict:
         "deck": {k: v for k, v in deck.items() if k != "slides_text"} | {"indexed": deck["slide_index"] is not None} if deck else None,
         "captures": state.store.board_captures(lecture_id),
         "alignment": state.store.alignment(lecture_id),
+        "candidates": state.store.candidates(lecture_id),
+        "suggestions": state.store.suggestions(None, lecture_id),
         "usage": state.store.usage_by_stage(lecture_id),
     }
 
@@ -207,6 +210,74 @@ async def import_photos(lecture_id: str, files: Annotated[list[UploadFile], File
 async def align(lecture_id: str) -> dict:
     _lecture_or_404(lecture_id)
     return await asyncio.to_thread(pipeline.align_lecture, state.store, lecture_id)
+
+
+@app.post("/api/lectures/{lecture_id}/extract")
+async def extract(lecture_id: str) -> dict:
+    lecture = _lecture_or_404(lecture_id)
+    if lecture["status"] == "recording":
+        raise HTTPException(409, "stop the lecture before extracting deadlines")
+    llm = _llm_or_503()
+    window = settings.extract_window_s if llm.provider == "ollama" else 0.0
+    try:
+        return await asyncio.to_thread(pipeline.extract_lecture, state.store, llm, lecture_id, window, settings.extract_overlap_s)
+    except LlmUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+# -- suggestions (the inbox) --------------------------------------------
+class DateIn(BaseModel):
+    date: str
+    time: str | None = None
+
+
+def _svc() -> SuggestionService:
+    return SuggestionService(state.store)
+
+
+def _suggestion_action(fn, sid: str) -> dict:
+    try:
+        return fn(sid)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.get("/api/suggestions")
+async def list_suggestions(state_filter: str | None = "proposed", lecture_id: str | None = None) -> list[dict]:
+    return state.store.suggestions(None if state_filter in (None, "", "all") else state_filter, lecture_id)
+
+
+@app.post("/api/suggestions/{sid}/confirm")
+async def confirm_suggestion(sid: str) -> dict:
+    return _suggestion_action(_svc().confirm, sid)
+
+
+@app.post("/api/suggestions/{sid}/dismiss")
+async def dismiss_suggestion(sid: str) -> dict:
+    return _suggestion_action(_svc().dismiss, sid)
+
+
+@app.post("/api/suggestions/{sid}/undo")
+async def undo_suggestion(sid: str) -> dict:
+    return _suggestion_action(_svc().undo, sid)
+
+
+@app.post("/api/suggestions/{sid}/date")
+async def set_suggestion_date(sid: str, body: DateIn) -> dict:
+    try:
+        return _svc().set_date(sid, body.date, body.time)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.get("/api/suggestions/export.ics")
+async def export_ics() -> Response:
+    ics = _svc().ics(state.store.suggestions(state="confirmed"))
+    return Response(content=ics, media_type="text/calendar", headers={"Content-Disposition": "attachment; filename=lecture-copilot.ics"})
 
 
 # -- decks ---------------------------------------------------------------

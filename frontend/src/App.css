@@ -61,6 +61,22 @@ nav { display: flex; gap: 4px; }
 .tab { background: transparent; border-color: transparent; color: var(--muted); }
 .tab.active { color: var(--text); border-color: #2a2f3a; background: var(--panel); }
 
+/* inbox */
+main.inbox { grid-template-columns: 1fr 300px; }
+@media (max-width: 760px) { main.inbox { grid-template-columns: 1fr; } }
+main.inbox > section { background: var(--panel); border-radius: 8px; padding: 12px; overflow-y: auto; max-height: 80vh; }
+.card { background: #12151b; border: 1px solid #262a33; border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 12px; margin: 0 0 10px; }
+.card.maybe { border-left-color: var(--warn); }
+.card-head { display: flex; gap: 8px; align-items: baseline; }
+.type { font-size: 0.7rem; text-transform: uppercase; background: #1f2a3d; color: #9cc0ff; padding: 1px 6px; border-radius: 3px; }
+.card-date { margin: 6px 0; }
+.warn-text { color: var(--warn); }
+blockquote { margin: 6px 0; padding: 6px 10px; border-left: 2px solid #3a3f4a; color: #c9c9c9; font-size: 0.9rem; }
+.small { font-size: 0.8rem; }
+.card-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+button.small { padding: 3px 8px; font-size: 0.8rem; margin-top: 4px; }
+a.button { display: inline-block; background: var(--accent); color: #fff; padding: 8px 12px; border-radius: 6px; text-decoration: none; }
+
 /* lectures view */
 main.lectures { grid-template-columns: 280px 1fr; }
 @media (max-width: 760px) { main.lectures { grid-template-columns: 1fr; } }
