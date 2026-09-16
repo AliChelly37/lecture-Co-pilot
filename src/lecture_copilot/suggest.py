@@ -82,17 +82,27 @@ class SuggestionService:
         self.targets = targets or {}
 
     def propose(self, candidates: list[Candidate], lecture: dict, course: dict) -> dict[str, int]:
-        """Create suggestion rows for surfaced candidates; idempotent per key."""
+        """Create suggestion rows for surfaced candidates; idempotent per key.
+        A re-run refreshes still-proposed cards and retires proposed cards it
+        no longer produces; confirmed, written and dismissed rows are untouched."""
         lecture_date = datetime.fromisoformat(lecture["started_at"]).date()
-        counts = {"one_tap": 0, "maybe": 0, "log": 0, "existing": 0}
+        counts = {"one_tap": 0, "maybe": 0, "log": 0, "existing": 0, "retired": 0}
+        produced: set[str] = set()
         for c in candidates:
             tier = tier_for(c, lecture_date)
             if tier == "log":
                 counts["log"] += 1
                 continue
             key = idempotency_key(course["id"], c)
-            if self.store.suggestion_by_key(key):
+            produced.add(key)
+            existing = self.store.suggestion_by_key(key)
+            if existing:
                 counts["existing"] += 1
+                if existing["state"] in ("proposed", "superseded"):
+                    # Not acted on (or retired by an earlier re-run): refresh the card.
+                    self.store.update_suggestion_payload(existing["id"], payload_for(c, lecture, course, tier), tier=tier)
+                    if existing["state"] == "superseded":
+                        self.store.set_suggestion_state(existing["id"], "proposed")
                 continue
             self.store.add_suggestion(
                 candidate_id=c.id or "",
@@ -102,6 +112,10 @@ class SuggestionService:
                 idempotency_key=key,
             )
             counts[tier] += 1
+        for stale in self.store.suggestions(state="proposed", lecture_id=lecture["id"]):
+            if stale["idempotency_key"] not in produced:
+                self.store.set_suggestion_state(stale["id"], "superseded")
+                counts["retired"] += 1
         return counts
 
     # -- state machine -----------------------------------------------------

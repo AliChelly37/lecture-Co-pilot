@@ -57,10 +57,20 @@ def test_merge_duplicates_corrections_and_log() -> None:
     joke = cand("Navier-Stokes joke", intent="joke", typ="other", expr="")
     past = cand("Last year's midterm", intent="past_reference", typ="exam", expr="week 6")
     hypo = cand("Problem set 4", intent="hypothetical", expr="tomorrow")
+    mid_new.t0 = 70.0  # the correction is spoken after the original (t0=10)
     out = merge([ps_a, ps_b, mid_old, mid_new, joke, past, hypo])
     assert ps_a.status == "duplicate" and out[ps_a.superseded_by] is ps_b and ps_b.status == "surfaced"
     assert mid_old.status == "superseded" and out[mid_old.superseded_by] is mid_new and mid_new.status == "surfaced"
     assert joke.status == "log" and past.status == "log" and hypo.status == "log"
+
+
+def test_later_mention_wins_even_without_a_correction_label() -> None:
+    # Measured on gemma3:4b: the corrected date sometimes comes back as a plain commitment.
+    first = cand("Midterm exam", typ="exam", expr="October 14", conf=0.98)
+    later = cand("midterm exam", typ="exam", expr="October 21", conf=0.9)
+    first.t0, later.t0 = 64.5, 68.5
+    merge([first, later])
+    assert first.status == "superseded" and later.status == "surfaced"
 
 
 def test_tier_policy() -> None:
@@ -88,9 +98,13 @@ def test_suggestion_lifecycle_and_ics(tmp_path: Path) -> None:
     c1 = cand("Problem set 4", expr="next Thursday at 5 pm")
     c2 = cand("Reading chapter 11", typ="reading", expr="next time")  # maybe tier
     counts = svc.propose([c1, c2], lecture, course)
-    assert counts == {"one_tap": 1, "maybe": 1, "log": 0, "existing": 0}
+    assert counts == {"one_tap": 1, "maybe": 1, "log": 0, "existing": 0, "retired": 0}
     # Re-running extraction is idempotent.
     assert svc.propose([c1, c2], lecture, course)["existing"] == 2
+    # A re-run that no longer produces c2 retires its still-proposed card.
+    assert svc.propose([c1], lecture, course)["retired"] == 1
+    assert len(store.suggestions(state="proposed")) == 1
+    svc.propose([c1, c2], lecture, course)  # bring c2 back for the rest of the test
 
     one_tap = next(s for s in store.suggestions(state="proposed") if s["tier"] == "one_tap")
     maybe = next(s for s in store.suggestions(state="proposed") if s["tier"] == "maybe")
@@ -112,6 +126,28 @@ def test_suggestion_lifecycle_and_ics(tmp_path: Path) -> None:
     ics = svc.ics(store.suggestions(state="confirmed"))
     assert "BEGIN:VEVENT" in ics and "DTSTART;VALUE=DATE:20260918" in ics and "Thermo: Reading chapter 11" in ics
     assert idempotency_key(course["id"], c1) == idempotency_key(course["id"], cand("problem set 4", expr="next Thursday at 5 pm"))
+    store.close()
+
+
+def test_clean_hint_and_rerun_refreshes_proposed(tmp_path: Path) -> None:
+    from lecture_copilot.extract import clean_hint
+
+    assert clean_hint("None", "Thermodynamics II") == ""
+    assert clean_hint("thermodynamics", "Thermodynamics II") == ""
+    assert clean_hint("Statistics", "Thermodynamics II") == "Statistics"
+    assert clean_hint(None, "X") == ""
+
+    store = Store(tmp_path / "t.sqlite3")
+    course = store.create_course("Thermo", TZ, {"week1_start": "2026-09-07"})
+    lecture = store.start_lecture(course["id"], "g", "cuda", "ac", None)
+    store.end_lecture(lecture["id"], 0.1, None)
+    svc = SuggestionService(store)
+    demoted = cand("Problem set 4", hint="None")  # what a small model produced
+    assert svc.propose([demoted], lecture, course) == {"one_tap": 0, "maybe": 1, "log": 0, "existing": 0, "retired": 0}
+    fixed = cand("Problem set 4", hint="")
+    assert svc.propose([fixed], lecture, course)["existing"] == 1
+    assert store.suggestions(state="proposed")[0]["tier"] == "one_tap"  # refreshed in place, same row
+    assert len(store.suggestions()) == 1
     store.close()
 
 

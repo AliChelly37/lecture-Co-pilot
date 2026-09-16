@@ -151,7 +151,7 @@ def test_extract_and_inbox_with_fake_model(client: TestClient, monkeypatch: pyte
     assert r.status_code == 200, r.text
     summary = r.json()
     assert summary["chunks"] == 1 and summary["candidates"] == 5
-    assert summary["suggestions"] == {"one_tap": 2, "maybe": 1, "log": 2, "existing": 0}
+    assert summary["suggestions"] == {"one_tap": 2, "maybe": 1, "log": 2, "existing": 0, "retired": 0}
 
     inbox = client.get("/api/suggestions").json()
     by_title = {s["payload"]["title"]: s for s in inbox}

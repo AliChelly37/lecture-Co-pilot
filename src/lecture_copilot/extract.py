@@ -93,6 +93,23 @@ def chunk_prompt(chunk: Chunk, slide_dates: list[str], hints: list[str]) -> str:
     return "\n\n".join(parts)
 
 
+_EMPTY_HINTS = {"", "none", "null", "n/a", "na", "-", "same", "this course", "current course"}
+
+
+def clean_hint(hint: str | None, course_name: str) -> str:
+    """Small models write "None" or repeat the current course instead of leaving
+    `course_hint` empty (measured on gemma3:4b); either would wrongly demote a
+    card to the maybe tray."""
+    h = (hint or "").strip()
+    low = h.lower()
+    if low in _EMPTY_HINTS:
+        return ""
+    cn = course_name.lower().strip()
+    if cn and (low == cn or low in cn or cn in low):
+        return ""
+    return h
+
+
 # -- locating evidence on the timeline ---------------------------------------
 _tok = re.compile(r"[a-z0-9]+")
 
@@ -165,16 +182,27 @@ def merge(cands: list[Candidate]) -> list[Candidate]:
         if c.intent in ("hypothetical", "joke", "past_reference"):
             c.status = "log"
     active = [c for c in cands if c.status == "surfaced"]
-    # 1. duplicates among same-intent candidates
+    # 1. the same event mentioned twice
     for i, a in enumerate(active):
         if a.status != "surfaced":
             continue
         for b in active[i + 1 :]:
-            if b.status != "surfaced" or a.intent != b.intent or not _similar(a, b):
+            if b.status != "surfaced" or not _similar(a, b):
                 continue
-            loser, winner = (a, b) if b.confidence > a.confidence else (b, a)
-            loser.status = "duplicate"
-            loser.superseded_by = cands.index(winner)
+            da, db = a.resolution.date, b.resolution.date
+            if da and db and da != db:
+                # Two dates for one event: the later mention wins, whatever the
+                # model called it. A spoken correction always follows the original.
+                first, later = (a, b) if (b.t0 or 0) >= (a.t0 or 0) else (b, a)
+                first.status = "superseded"
+                first.superseded_by = cands.index(later)
+                loser = first
+            else:
+                if a.intent != b.intent and "commitment" not in (a.intent, b.intent):
+                    continue
+                loser, winner = (a, b) if b.confidence > a.confidence else (b, a)
+                loser.status = "duplicate"
+                loser.superseded_by = cands.index(winner)
             if loser is a:
                 break
     # 2. corrections supersede the commitments they correct

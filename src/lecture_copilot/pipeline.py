@@ -12,7 +12,17 @@ from pathlib import Path
 from lecture_copilot.align import SlideAligner, coverage, off_slide_stretches
 from lecture_copilot.dates import DateResolver
 from lecture_copilot.deck import SLIDE_INDEX_SYSTEM, SlideIndex, extract_deck, index_to_json, slide_index_user_message
-from lecture_copilot.extract import EXTRACT_SYSTEM, Candidate, Chunk, ChunkExtraction, chunk_prompt, chunk_segments, locate, merge
+from lecture_copilot.extract import (
+    EXTRACT_SYSTEM,
+    Candidate,
+    Chunk,
+    ChunkExtraction,
+    chunk_prompt,
+    chunk_segments,
+    clean_hint,
+    locate,
+    merge,
+)
 from lecture_copilot.llm import LlmGateway
 from lecture_copilot.photos import BOARD_SYSTEM, BoardReading, prepare_photo, seconds_into_lecture
 from lecture_copilot.recap import (
@@ -151,7 +161,7 @@ def extract_lecture(store: Store, llm: LlmGateway, lecture_id: str, window_s: fl
                     e.intent,
                     e.evidence_quote,
                     e.confidence,
-                    e.course_hint,
+                    clean_hint(e.course_hint, course["name"]),
                     t0,
                     asr_conf,
                     res,
