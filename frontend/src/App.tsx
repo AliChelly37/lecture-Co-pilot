@@ -346,16 +346,33 @@ function Live({
 }
 
 // ---------- inbox view ----------
+type TargetHealthT = { name: string; configured: boolean; connected: boolean; detail: string }
+
 function Inbox({ setError }: { setError: (e: string | null) => void }) {
   const [proposed, setProposed] = useState<Suggestion[]>([])
   const [confirmed, setConfirmed] = useState<Suggestion[]>([])
+  const [targets, setTargets] = useState<TargetHealthT[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [dates, setDates] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
     setProposed(await api<Suggestion[]>('/api/suggestions?state_filter=proposed'))
-    setConfirmed(await api<Suggestion[]>('/api/suggestions?state_filter=confirmed'))
+    setConfirmed(await api<Suggestion[]>('/api/suggestions?state_filter=done'))
+    setTargets(await api<TargetHealthT[]>('/api/targets'))
   }, [])
+
+  const connectGoogle = async () => {
+    setBusy('gcal')
+    setError(null)
+    try {
+      await api('/api/targets/gcal/connect', { method: 'POST' })
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(null)
+    }
+  }
   useEffect(() => {
     load().catch((e) => setError(String(e)))
   }, [load, setError])
@@ -440,6 +457,19 @@ function Inbox({ setError }: { setError: (e: string | null) => void }) {
         ))}
       </section>
       <aside>
+        <h2>Targets</h2>
+        {targets.length === 0 && <p className="muted small">No external targets enabled (set LC_TARGETS=gcal,notion). Confirmed items export as .ics.</p>}
+        {targets.map((t) => (
+          <p key={t.name} className="small">
+            <span className={`pill ${t.connected ? 'ok' : t.configured ? 'warn' : 'bad'}`}>{t.name === 'gcal' ? 'Google Calendar' : 'Notion'}</span> {t.detail}
+            {t.name === 'gcal' && t.configured && !t.connected && (
+              <button className="small" onClick={connectGoogle} disabled={busy !== null}>
+                {busy === 'gcal' ? 'Waiting for sign-in…' : 'Connect Google'}
+              </button>
+            )}
+          </p>
+        ))}
+
         <h2>Confirmed ({confirmed.length})</h2>
         {confirmed.length > 0 && (
           <p>
@@ -448,17 +478,42 @@ function Inbox({ setError }: { setError: (e: string | null) => void }) {
             </a>
           </p>
         )}
-        {confirmed.map((s) => (
-          <p key={s.id} className="row">
-            <b>{s.payload.title}</b> · {s.payload.date}
-            {s.payload.time ? ` ${s.payload.time}` : ''}
-            <br />
-            <button className="small" onClick={() => act(s.id, 'undo')} disabled={busy === s.id}>
-              Undo
-            </button>
-          </p>
-        ))}
-        <p className="muted small">Confirming never writes anywhere by itself. Calendar and Notion targets arrive in M5; until then, export .ics.</p>
+        {confirmed.map((s) => {
+          const ext = (s.payload as unknown as { external?: Record<string, { id: string; url: string | null }> }).external ?? {}
+          const failed = s.state.startsWith('failed')
+          return (
+            <p key={s.id} className="row">
+              <b>{s.payload.title}</b> · {s.payload.date}
+              {s.payload.time ? ` ${s.payload.time}` : ''}
+              <br />
+              <span className={`small ${failed ? 'warn-text' : 'muted'}`}>
+                {s.state}
+                {(s as unknown as { error?: string }).error ? `: ${(s as unknown as { error?: string }).error}` : ''}
+              </span>
+              <br />
+              {Object.entries(ext).map(([name, e]) =>
+                e.url ? (
+                  <a key={name} className="chip link" href={e.url} target="_blank" rel="noreferrer">
+                    open in {name === 'gcal' ? 'Calendar' : name}
+                  </a>
+                ) : (
+                  <span key={name} className="chip">
+                    {name} ✓
+                  </span>
+                ),
+              )}{' '}
+              {s.state === 'failed_retryable' && (
+                <button className="small" onClick={() => act(s.id, 'retry')} disabled={busy === s.id}>
+                  Retry
+                </button>
+              )}
+              <button className="small" onClick={() => act(s.id, 'undo')} disabled={busy === s.id}>
+                Undo
+              </button>
+            </p>
+          )
+        })}
+        <p className="muted small">Nothing is written anywhere until you confirm. Undo removes what was written.</p>
       </aside>
     </main>
   )

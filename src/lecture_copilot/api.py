@@ -7,6 +7,7 @@ import asyncio
 import logging
 import tempfile
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated
 
@@ -23,6 +24,8 @@ from lecture_copilot.power import SleepGuard
 from lecture_copilot.session import LectureSession
 from lecture_copilot.store import Store
 from lecture_copilot.suggest import SuggestionService
+from lecture_copilot.targets import ActionTarget, TargetError
+from lecture_copilot.targets.registry import build_targets
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +39,7 @@ class AppState:
     session: LectureSession
     sleep_guard: SleepGuard
     llm: LlmGateway
+    targets: dict[str, ActionTarget]
 
 
 state = AppState()
@@ -49,7 +53,14 @@ async def lifespan(app: FastAPI):
     state.session = LectureSession(settings, state.store, state.bus)
     state.sleep_guard = SleepGuard()
     state.llm = LlmGateway(settings, state.store)
-    log.info("data dir: %s; Claude API %s", settings.data_dir.resolve(), "configured" if state.llm.available else "NOT configured")
+    state.targets = build_targets(settings)
+    log.info(
+        "data dir: %s; model provider %s (%s); targets: %s",
+        settings.data_dir.resolve(),
+        state.llm.provider,
+        "available" if state.llm.available else "NOT configured",
+        ", ".join(state.targets) or "none (local .ics only)",
+    )
     try:
         yield
     finally:
@@ -94,7 +105,7 @@ def _llm_or_503() -> LlmGateway:
 # -- status & devices ----------------------------------------------------
 @app.get("/api/status")
 async def get_status() -> dict:
-    return {**state.session.status(), "llm_available": state.llm.available}
+    return {**state.session.status(), "llm_available": state.llm.available, "llm": state.llm.describe(), "targets": list(state.targets)}
 
 
 @app.get("/api/devices")
@@ -289,36 +300,70 @@ class DateIn(BaseModel):
 
 
 def _svc() -> SuggestionService:
-    return SuggestionService(state.store)
+    return SuggestionService(state.store, state.targets)
 
 
-def _suggestion_action(fn, sid: str) -> dict:
+async def _suggestion_action(fn, sid: str) -> dict:
+    # Runs in a thread: confirm/undo/retry may call external services.
     try:
-        return fn(sid)
+        return await asyncio.to_thread(fn, sid)
     except KeyError as exc:
         raise HTTPException(404, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
+    except TargetError as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 @app.get("/api/suggestions")
 async def list_suggestions(state_filter: str | None = "proposed", lecture_id: str | None = None) -> list[dict]:
+    if state_filter == "done":
+        rows = state.store.suggestions(None, lecture_id)
+        return [r for r in rows if r["state"] in ("confirmed", "written", "failed_retryable", "failed_permanent")]
     return state.store.suggestions(None if state_filter in (None, "", "all") else state_filter, lecture_id)
 
 
 @app.post("/api/suggestions/{sid}/confirm")
 async def confirm_suggestion(sid: str) -> dict:
-    return _suggestion_action(_svc().confirm, sid)
+    return await _suggestion_action(_svc().confirm, sid)
 
 
 @app.post("/api/suggestions/{sid}/dismiss")
 async def dismiss_suggestion(sid: str) -> dict:
-    return _suggestion_action(_svc().dismiss, sid)
+    return await _suggestion_action(_svc().dismiss, sid)
 
 
 @app.post("/api/suggestions/{sid}/undo")
 async def undo_suggestion(sid: str) -> dict:
-    return _suggestion_action(_svc().undo, sid)
+    return await _suggestion_action(_svc().undo, sid)
+
+
+@app.post("/api/suggestions/{sid}/retry")
+async def retry_suggestion(sid: str) -> dict:
+    return await _suggestion_action(_svc().write, sid)
+
+
+# -- targets (M5) --------------------------------------------------------
+@app.get("/api/targets")
+async def list_targets() -> list[dict]:
+    def check() -> list[dict]:
+        return [asdict(t.healthcheck()) for t in state.targets.values()]
+
+    return await asyncio.to_thread(check)
+
+
+@app.post("/api/targets/gcal/connect")
+async def connect_google() -> dict:
+    target = state.targets.get("gcal")
+    if target is None:
+        raise HTTPException(404, "Google Calendar is not enabled (LC_TARGETS)")
+    try:
+        return asdict(await asyncio.to_thread(target.connect))  # type: ignore[attr-defined]
+    except TargetError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except Exception as exc:
+        log.exception("google connect failed")
+        raise HTTPException(502, f"Google sign-in failed: {exc}") from exc
 
 
 @app.post("/api/suggestions/{sid}/date")

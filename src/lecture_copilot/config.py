@@ -54,6 +54,17 @@ class Settings(BaseSettings):
     # Privacy defaults (D19).
     transcript_retention_days: int = 30
 
+    # Action targets (D1, M5): comma list of "gcal", "notion". Empty = confirm stays local (.ics export).
+    targets: str = ""
+    google_client_secret: Path = Path("data/google_client_secret.json")
+    notion_token: str | None = Field(default=None, validation_alias="NOTION_TOKEN")
+    notion_database_id: str | None = Field(default=None, validation_alias="NOTION_DATABASE_ID")
+    notion_prop_title: str = "Name"
+    notion_prop_date: str = "Due"
+    notion_prop_status: str = ""  # optional status/select property
+    notion_status_value: str = ""  # value to set on creation, e.g. "To do"
+    notion_prop_course: str = ""  # optional select/rich_text property for the course name
+
     # Model provider (D21). "ollama" is fully local and free; "cloudflare" is the
     # Workers AI free tier (10k neurons/day); "anthropic" needs a paid key.
     llm_provider: str = "ollama"  # ollama | cloudflare | anthropic

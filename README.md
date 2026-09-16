@@ -20,7 +20,7 @@ and the model-provider benchmark in [docs/LLM_BENCHMARK.md](docs/LLM_BENCHMARK.m
 - [x] M2 Deck ingestion (PDF/PPTX text), photo import (EXIF), board OCR, slide alignment, Lectures view
 - [x] M3 Post-lecture deadline extraction (chunked for the local model), date resolution in code, suggestion inbox with one-tap / check-me tiers, .ics export
 - [x] M4 Recap (map-reduce for the local model, per-flag explanations, source pointers, versions, ratings) and ask-the-lecture
-- [ ] M5 Google Calendar and Notion targets (confirm-before-write)
+- [x] M5 Google Calendar and Notion targets behind one ActionTarget interface (confirm-before-write, idempotent, undo deletes)
 - [ ] M6 Eval harness on MIT OCW lectures, cost chart
 - [ ] M7 Dashboard, export/delete, retention, read-only MCP server
 
@@ -62,6 +62,36 @@ transcript. Then ask the lecture questions.
 
 Settings are environment variables prefixed `LC_` (or a `.env` file), e.g.
 `LC_ASR_MODEL_AC=small`. See `src/lecture_copilot/config.py`.
+
+## Integrations (optional)
+
+Confirmed deadlines stay local (`.ics` export) unless you enable targets with
+`LC_TARGETS=gcal,notion` in `.env`. Each write happens only on your confirm tap,
+is idempotent (confirming twice never duplicates), and **Undo** deletes it again.
+
+**Google Calendar.** The app only ever writes to a calendar it creates
+("Lecture Co-Pilot"), using the `calendar.app.created` scope, so it cannot see
+or touch your other calendars.
+1. In Google Cloud Console create a project, enable the *Google Calendar API*.
+2. OAuth consent screen: External, then publish it (*In production*). Personal
+   use under 100 users needs no verification; leaving it in *Testing* expires
+   the sign-in every 7 days.
+3. Credentials, *OAuth client ID*, application type *Desktop app*; download the
+   JSON to `data/google_client_secret.json`.
+4. Set `LC_TARGETS=gcal`, restart, open **Inbox**, click **Connect Google**.
+   A personal Gmail account is safer than a university Workspace account, whose
+   admins may block the app.
+
+**Notion.** Writes a page into a database you already use.
+1. Create an internal integration at notion.so/profile/integrations, copy the
+   token, and share the target database with it (database menu, *Connections*).
+2. Add a *Text* property named `copilot_id` to that database (used to make
+   writes idempotent).
+3. In `.env`: `NOTION_TOKEN=...`, `NOTION_DATABASE_ID=...` (from the database
+   URL), and the property mapping: `LC_NOTION_PROP_TITLE=Name`,
+   `LC_NOTION_PROP_DATE=Due`, optionally `LC_NOTION_PROP_STATUS=Status`,
+   `LC_NOTION_STATUS_VALUE=To do`, `LC_NOTION_PROP_COURSE=Course`.
+4. Set `LC_TARGETS=gcal,notion`; the Inbox shows whether the mapping verified.
 
 ## Develop
 

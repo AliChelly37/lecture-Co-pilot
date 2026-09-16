@@ -21,6 +21,7 @@ from datetime import date, datetime
 
 from lecture_copilot.extract import Candidate
 from lecture_copilot.store import Store
+from lecture_copilot.targets import ActionTarget, TargetError
 
 ONE_TAP_MIN_CONF = 0.7
 ONE_TAP_MIN_ASR_CONF = 0.5
@@ -76,8 +77,9 @@ def payload_for(c: Candidate, lecture: dict, course: dict, tier: str) -> dict:
 
 
 class SuggestionService:
-    def __init__(self, store: Store) -> None:
+    def __init__(self, store: Store, targets: dict[str, ActionTarget] | None = None) -> None:
         self.store = store
+        self.targets = targets or {}
 
     def propose(self, candidates: list[Candidate], lecture: dict, course: dict) -> dict[str, int]:
         """Create suggestion rows for surfaced candidates; idempotent per key."""
@@ -104,26 +106,67 @@ class SuggestionService:
 
     # -- state machine -----------------------------------------------------
     def confirm(self, suggestion_id: str) -> dict:
+        """The user's tap. Moves to `confirmed`, then writes to every configured
+        target. With no targets configured it stays `confirmed` (.ics export)."""
         s = self._get(suggestion_id)
         if s["state"] not in ("proposed",):
             raise ValueError(f"cannot confirm a suggestion in state {s['state']}")
         if not s["payload"].get("date"):
             raise ValueError("set a date before confirming")
         self.store.set_suggestion_state(suggestion_id, "confirmed")
+        if self.targets:
+            return self.write(suggestion_id)
+        return self._get(suggestion_id)
+
+    def write(self, suggestion_id: str) -> dict:
+        """Write (or retry writing) a confirmed suggestion to each target that
+        doesn't have it yet. Idempotent per target via the suggestion key."""
+        s = self._get(suggestion_id)
+        if s["state"] not in ("confirmed", "failed_retryable"):
+            raise ValueError(f"cannot write a suggestion in state {s['state']}")
+        payload = s["payload"]
+        external: dict[str, dict] = dict(payload.get("external") or {})
+        errors: list[tuple[str, str, bool]] = []
+        for name, target in self.targets.items():
+            if name in external:
+                continue
+            try:
+                res = target.write(payload, s["idempotency_key"])
+                external[name] = {"id": res.external_id, "url": res.url, "created": res.created}
+            except TargetError as exc:
+                errors.append((name, str(exc), exc.retryable))
+            except Exception as exc:  # network layer, unexpected shapes: retryable
+                errors.append((name, f"{type(exc).__name__}: {exc}", True))
+        self.store.update_suggestion_payload(suggestion_id, payload | {"external": external})
+        if not errors:
+            self.store.set_suggestion_state(suggestion_id, "written", external_id=",".join(f"{k}:{v['id']}" for k, v in external.items()))
+        else:
+            state = "failed_retryable" if any(r for _, _, r in errors) else "failed_permanent"
+            self.store.set_suggestion_state(suggestion_id, state, error="; ".join(f"{n}: {m}" for n, m, _ in errors))
         return self._get(suggestion_id)
 
     def dismiss(self, suggestion_id: str) -> dict:
         s = self._get(suggestion_id)
         if s["state"] not in ("proposed", "confirmed"):
-            raise ValueError(f"cannot dismiss a suggestion in state {s['state']}")
+            raise ValueError(f"cannot dismiss a suggestion in state {s['state']} (undo it first)")
         self.store.set_suggestion_state(suggestion_id, "dismissed")
         return self._get(suggestion_id)
 
     def undo(self, suggestion_id: str) -> dict:
+        """Back to `proposed`. For a written suggestion this deletes what was
+        written; a delete that fails leaves the record where it is."""
         s = self._get(suggestion_id)
-        if s["state"] not in ("confirmed", "dismissed"):
+        if s["state"] not in ("confirmed", "dismissed", "written", "failed_retryable", "failed_permanent"):
             raise ValueError(f"cannot undo a suggestion in state {s['state']}")
-        self.store.set_suggestion_state(suggestion_id, "proposed")
+        external: dict[str, dict] = dict(s["payload"].get("external") or {})
+        for name in list(external):
+            target = self.targets.get(name)
+            if target is None:
+                continue  # target no longer configured; the external record stays, the link is dropped
+            target.delete(external[name]["id"])  # TargetError propagates: nothing is silently orphaned
+            external.pop(name)
+        self.store.update_suggestion_payload(suggestion_id, s["payload"] | {"external": external})
+        self.store.set_suggestion_state(suggestion_id, "proposed", error="")
         return self._get(suggestion_id)
 
     def set_date(self, suggestion_id: str, iso_date: str, iso_time: str | None = None) -> dict:
