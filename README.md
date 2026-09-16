@@ -161,3 +161,10 @@ uv run python scripts/probe_vision.py                           # board-reading 
 - Only derived text (transcript, OCR text, recaps) is stored, in a local SQLite file you can export or delete.
 - With the default local model provider, nothing leaves the laptop at any point. With a cloud provider, only text and downscaled board photos leave, after class.
 - Check your institution's recording policy before recording a lecture.
+
+## License
+
+The code is MIT licensed (see [LICENSE](LICENSE)). Eval data derived from
+MIT OpenCourseWare (`eval/data/`, not included in this repo) would carry its
+own **CC BY-NC-SA 4.0** licence, separate from the code — see
+[eval/README.md](eval/README.md).
