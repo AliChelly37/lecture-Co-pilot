@@ -22,7 +22,7 @@ and the model-provider benchmark in [docs/LLM_BENCHMARK.md](docs/LLM_BENCHMARK.m
 - [x] M4 Recap (map-reduce for the local model, per-flag explanations, source pointers, versions, ratings) and ask-the-lecture
 - [x] M5 Google Calendar and Notion targets behind one ActionTarget interface (confirm-before-write, idempotent, undo deletes)
 - [ ] M6 Eval harness on MIT OCW lectures, cost chart
-- [ ] M7 Dashboard, export/delete, retention, read-only MCP server
+- [x] M7 Dashboard, export (JSON/Markdown), delete, transcript retention, read-only MCP server
 
 ## Run it
 
@@ -92,6 +92,32 @@ or touch your other calendars.
    `LC_NOTION_PROP_DATE=Due`, optionally `LC_NOTION_PROP_STATUS=Status`,
    `LC_NOTION_STATUS_VALUE=To do`, `LC_NOTION_PROP_COURSE=Course`.
 4. Set `LC_TARGETS=gcal,notion`; the Inbox shows whether the mapping verified.
+
+## Your data
+
+Everything lives in one local SQLite file under `data/`. Each lecture can be
+exported as JSON or Markdown and deleted outright (all derived rows go with
+it). Transcripts are purged after `LC_TRANSCRIPT_RETENTION_DAYS` (default 30);
+recaps, flags and confirmed deadlines are kept. The **Dashboard** shows open
+flags, pending and upcoming deadlines, model calls by stage, recorded hours,
+ASR speed and battery drain.
+
+## Ask it from Claude Desktop or Claude Code (MCP)
+
+A read-only MCP server exposes your lectures to any MCP client:
+
+```powershell
+uv run lecture-copilot-mcp
+```
+
+Claude Desktop config (`claude_desktop_config.json`):
+
+```json
+{"mcpServers": {"lecture-copilot": {"command": "uv", "args": ["run", "--directory", "C:/path/to/project", "lecture-copilot-mcp"]}}}
+```
+
+Tools: `list_lectures`, `search_transcripts`, `get_recap`, `list_open_flags`,
+`upcoming_deadlines`. Nothing in it writes.
 
 ## Develop
 

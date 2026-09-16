@@ -19,6 +19,7 @@ from lecture_copilot import pipeline
 from lecture_copilot.bus import EventBus
 from lecture_copilot.capture import MicCapture
 from lecture_copilot.config import settings
+from lecture_copilot.export import lecture_markdown
 from lecture_copilot.llm import LlmGateway, LlmUnavailable
 from lecture_copilot.power import SleepGuard
 from lecture_copilot.session import LectureSession
@@ -61,6 +62,9 @@ async def lifespan(app: FastAPI):
         "available" if state.llm.available else "NOT configured",
         ", ".join(state.targets) or "none (local .ics only)",
     )
+    purged = state.store.purge_transcripts(settings.transcript_retention_days)
+    if purged:
+        log.info("retention: purged transcripts of %d lecture(s) older than %d days", purged, settings.transcript_retention_days)
     try:
         yield
     finally:
@@ -98,7 +102,10 @@ def _lecture_or_404(lecture_id: str) -> dict:
 
 def _llm_or_503() -> LlmGateway:
     if not state.llm.available:
-        raise HTTPException(503, "Claude API not configured: set ANTHROPIC_API_KEY in .env (capture works without it)")
+        raise HTTPException(
+            503,
+            f"model provider '{state.llm.provider}' is not configured (see README: Ollama, Cloudflare or Anthropic); capture works without it",
+        )
     return state.llm
 
 
@@ -380,6 +387,56 @@ async def set_suggestion_date(sid: str, body: DateIn) -> dict:
 async def export_ics() -> Response:
     ics = _svc().ics(state.store.suggestions(state="confirmed"))
     return Response(content=ics, media_type="text/calendar", headers={"Content-Disposition": "attachment; filename=lecture-copilot.ics"})
+
+
+# -- export / delete / retention / dashboard (M7) ------------------------
+@app.get("/api/lectures/{lecture_id}/export.json")
+async def export_json(lecture_id: str) -> dict:
+    bundle = state.store.export_lecture(lecture_id)
+    if bundle is None:
+        raise HTTPException(404, "unknown lecture")
+    return bundle
+
+
+@app.get("/api/lectures/{lecture_id}/export.md")
+async def export_md(lecture_id: str) -> Response:
+    bundle = state.store.export_lecture(lecture_id)
+    if bundle is None:
+        raise HTTPException(404, "unknown lecture")
+    md = lecture_markdown(bundle)
+    return Response(
+        content=md,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=lecture-{lecture_id}.md"},
+    )
+
+
+@app.delete("/api/lectures/{lecture_id}")
+async def delete_lecture(lecture_id: str) -> dict:
+    if state.session.lecture and state.session.lecture["id"] == lecture_id:
+        raise HTTPException(409, "stop the lecture first")
+    if not state.store.delete_lecture(lecture_id):
+        raise HTTPException(404, "unknown lecture")
+    return {"deleted": lecture_id}
+
+
+@app.delete("/api/courses/{course_id}")
+async def delete_course(course_id: str) -> dict:
+    if state.session.lecture and state.session.lecture["course_id"] == course_id:
+        raise HTTPException(409, "stop the lecture first")
+    if state.store.one("SELECT id FROM courses WHERE id=?", (course_id,)) is None:
+        raise HTTPException(404, "unknown course")
+    return {"deleted": course_id, "lectures": state.store.delete_course(course_id)}
+
+
+@app.post("/api/maintenance/purge")
+async def purge() -> dict:
+    return {"purged_lectures": state.store.purge_transcripts(settings.transcript_retention_days)}
+
+
+@app.get("/api/dashboard")
+async def dashboard() -> dict:
+    return state.store.dashboard()
 
 
 # -- decks ---------------------------------------------------------------

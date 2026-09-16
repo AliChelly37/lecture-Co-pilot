@@ -487,6 +487,130 @@ class Store:
             (rating, json.dumps(flag_helpful) if flag_helpful is not None else None, rid),
         )
 
+    # -- export / delete / retention (M7, D2, D19) ------------------------
+    LECTURE_TABLES = (
+        "segments",
+        "gaps",
+        "flags",
+        "board_captures",
+        "slide_alignment",
+        "candidate_events",
+        "suggestions",
+        "recaps",
+        "usage_ledger",
+    )
+
+    def export_lecture(self, lecture_id: str) -> dict | None:
+        lecture = self.get_lecture(lecture_id)
+        if lecture is None:
+            return None
+        course = self.one("SELECT * FROM courses WHERE id=?", (lecture["course_id"],))
+        deck = self.get_deck(lecture["deck_id"]) if lecture.get("deck_id") else None
+        return {
+            "exported_at": now_iso(),
+            "course": course,
+            "lecture": lecture,
+            "deck": {k: v for k, v in deck.items() if k != "slides_text"} if deck else None,
+            "segments": self.segments(lecture_id),
+            "gaps": self.gaps(lecture_id),
+            "flags": self.flags(lecture_id),
+            "board_captures": self.board_captures(lecture_id),
+            "alignment": self.alignment(lecture_id),
+            "candidates": self.candidates(lecture_id),
+            "suggestions": self.suggestions(None, lecture_id),
+            "recaps": [self._recap_row(r) for r in self.query("SELECT * FROM recaps WHERE lecture_id=? ORDER BY version", (lecture_id,))],
+            "usage": self.usage_by_stage(lecture_id),
+        }
+
+    def delete_lecture(self, lecture_id: str) -> bool:
+        if self.get_lecture(lecture_id) is None:
+            return False
+        with self._lock:
+            for table in self.LECTURE_TABLES:
+                self._conn.execute(f"DELETE FROM {table} WHERE lecture_id=?", (lecture_id,))
+            self._conn.execute("DELETE FROM lectures WHERE id=?", (lecture_id,))
+            self._conn.commit()
+        return True
+
+    def delete_course(self, course_id: str) -> int:
+        lectures = self.query("SELECT id FROM lectures WHERE course_id=?", (course_id,))
+        for row in lectures:
+            self.delete_lecture(row["id"])
+        with self._lock:
+            self._conn.execute("DELETE FROM known_concepts WHERE course_id=?", (course_id,))
+            self._conn.execute("DELETE FROM decks WHERE course_id=?", (course_id,))
+            self._conn.execute("DELETE FROM courses WHERE id=?", (course_id,))
+            self._conn.commit()
+        return len(lectures)
+
+    def purge_transcripts(self, default_days: int) -> int:
+        """Delete transcript segments older than the retention window (course
+        override, else default). Recaps, flags and suggestions stay. Returns
+        the number of lectures purged."""
+        rows = self.query(
+            "SELECT l.id, l.ended_at, COALESCE(c.transcript_retention_days, ?) AS days FROM lectures l JOIN courses c ON c.id=l.course_id"
+            " WHERE l.ended_at IS NOT NULL AND l.notes IS NOT 'transcript purged'",
+            (default_days,),
+        )
+        purged = 0
+        now = datetime.now(UTC)
+        for r in rows:
+            if not r["days"] or r["days"] <= 0:
+                continue
+            ended = datetime.fromisoformat(r["ended_at"])
+            if (now - ended).days >= int(r["days"]):
+                with self._lock:
+                    self._conn.execute("DELETE FROM segments WHERE lecture_id=?", (r["id"],))
+                    self._conn.execute("UPDATE lectures SET notes='transcript purged' WHERE id=?", (r["id"],))
+                    self._conn.commit()
+                purged += 1
+        return purged
+
+    def db_size_bytes(self) -> int:
+        row = self.one("SELECT page_count * page_size AS b FROM pragma_page_count(), pragma_page_size()")
+        return int(row["b"]) if row else 0
+
+    # -- dashboard (M7) --------------------------------------------------
+    def dashboard(self) -> dict:
+        courses = self.query(
+            "SELECT c.id, c.name, COUNT(l.id) AS lectures, MAX(l.started_at) AS last_lecture,"
+            " (SELECT COUNT(*) FROM flags f JOIN lectures l2 ON l2.id=f.lecture_id WHERE l2.course_id=c.id AND f.resolved=0) AS open_flags,"
+            " (SELECT COUNT(*) FROM suggestions s WHERE s.state='proposed' AND s.lecture_id IN (SELECT id FROM lectures WHERE course_id=c.id)) AS pending_suggestions,"
+            " (SELECT COUNT(DISTINCT r.lecture_id) FROM recaps r JOIN lectures l3 ON l3.id=r.lecture_id WHERE l3.course_id=c.id) AS recaps"
+            " FROM courses c LEFT JOIN lectures l ON l.course_id=c.id GROUP BY c.id ORDER BY c.name"
+        )
+        inbox = {r["tier"]: r["n"] for r in self.query("SELECT tier, COUNT(*) AS n FROM suggestions WHERE state='proposed' GROUP BY tier")}
+        upcoming = [
+            s
+            for s in self.suggestions(None)
+            if s["state"] in ("confirmed", "written")
+            and s["payload"].get("date")
+            and s["payload"]["date"] >= datetime.now(UTC).date().isoformat()
+        ]
+        upcoming.sort(key=lambda s: (s["payload"]["date"], s["payload"].get("time") or ""))
+        usage = self.usage_by_stage()
+        asr = self.one(
+            "SELECT AVG(asr_rtf_p95) AS rtf, AVG(CASE WHEN power_state='battery' AND battery_start IS NOT NULL AND battery_end IS NOT NULL"
+            " THEN (battery_start - battery_end) * 3600.0 / MAX(1, (julianday(ended_at) - julianday(started_at)) * 86400) END) AS drain_per_hour,"
+            " SUM((julianday(ended_at) - julianday(started_at)) * 24) AS hours FROM lectures WHERE ended_at IS NOT NULL"
+        )
+        return {
+            "courses": courses,
+            "inbox": {"one_tap": inbox.get("one_tap", 0), "maybe": inbox.get("maybe", 0)},
+            "upcoming": upcoming[:20],
+            "usage": {
+                "by_stage": usage,
+                "total_cost_usd": round(sum(u["cost_usd"] for u in usage), 4),
+                "calls": sum(u["calls"] for u in usage),
+            },
+            "asr": {
+                "rtf_p95_avg": round(asr["rtf"], 3) if asr and asr["rtf"] else None,
+                "battery_drain_pct_per_hour": round(asr["drain_per_hour"], 1) if asr and asr["drain_per_hour"] else None,
+                "recorded_hours": round(asr["hours"], 2) if asr and asr["hours"] else 0.0,
+            },
+            "storage": {"db_bytes": self.db_size_bytes()},
+        }
+
     def usage_by_stage(self, lecture_id: str | None = None) -> list[dict]:
         where = " WHERE lecture_id=?" if lecture_id else ""
         return self.query(

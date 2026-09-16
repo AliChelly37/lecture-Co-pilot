@@ -120,7 +120,7 @@ const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'cont
 
 // ---------- app shell ----------
 export default function App() {
-  const [view, setView] = useState<'live' | 'lectures' | 'inbox'>('live')
+  const [view, setView] = useState<'live' | 'lectures' | 'inbox' | 'dashboard'>('live')
   const [status, setStatus] = useState<Status | null>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -140,6 +140,9 @@ export default function App() {
           <button className={view === 'inbox' ? 'tab active' : 'tab'} onClick={() => setView('inbox')}>
             Inbox
           </button>
+          <button className={view === 'dashboard' ? 'tab active' : 'tab'} onClick={() => setView('dashboard')}>
+            Dashboard
+          </button>
         </nav>
         <StatusPills status={status} connected={connected} />
       </header>
@@ -151,6 +154,7 @@ export default function App() {
       {view === 'live' && <Live status={status} setStatus={setStatus} refresh={refresh} setConnected={setConnected} setError={setError} />}
       {view === 'lectures' && <Lectures setError={setError} llmAvailable={!!status?.llm_available} />}
       {view === 'inbox' && <Inbox setError={setError} />}
+      {view === 'dashboard' && <Dashboard setError={setError} />}
       <footer className="muted">Audio never leaves this laptop. Nothing is sent anywhere during class.</footer>
     </div>
   )
@@ -342,6 +346,122 @@ function Live({
         </aside>
       </main>
     </>
+  )
+}
+
+// ---------- dashboard ----------
+type DashboardT = {
+  courses: { id: string; name: string; lectures: number; last_lecture: string | null; open_flags: number; pending_suggestions: number; recaps: number }[]
+  inbox: { one_tap: number; maybe: number }
+  upcoming: Suggestion[]
+  usage: { by_stage: { stage: string; model: string; calls: number; cost_usd: number; input_tokens: number; output_tokens: number }[]; total_cost_usd: number; calls: number }
+  asr: { rtf_p95_avg: number | null; battery_drain_pct_per_hour: number | null; recorded_hours: number }
+  storage: { db_bytes: number }
+}
+
+function Dashboard({ setError }: { setError: (e: string | null) => void }) {
+  const [d, setD] = useState<DashboardT | null>(null)
+  useEffect(() => {
+    api<DashboardT>('/api/dashboard').then(setD).catch((e) => setError(String(e)))
+  }, [setError])
+  if (!d) return <p className="muted">Loading…</p>
+  return (
+    <main className="dash">
+      <section className="cards">
+        <div className="stat">
+          <b>{d.inbox.one_tap}</b>
+          <span>ready to confirm</span>
+        </div>
+        <div className="stat">
+          <b>{d.inbox.maybe}</b>
+          <span>to check</span>
+        </div>
+        <div className="stat">
+          <b>{d.courses.reduce((a, c) => a + c.open_flags, 0)}</b>
+          <span>open flags</span>
+        </div>
+        <div className="stat">
+          <b>{d.asr.recorded_hours.toFixed(1)} h</b>
+          <span>recorded</span>
+        </div>
+        <div className="stat">
+          <b>${d.usage.total_cost_usd.toFixed(2)}</b>
+          <span>model spend ({d.usage.calls} calls)</span>
+        </div>
+        <div className="stat">
+          <b>{d.asr.battery_drain_pct_per_hour !== null ? `${d.asr.battery_drain_pct_per_hour}%/h` : '–'}</b>
+          <span>battery drain on battery</span>
+        </div>
+        <div className="stat">
+          <b>{d.asr.rtf_p95_avg ?? '–'}</b>
+          <span>ASR real-time factor (p95 avg)</span>
+        </div>
+        <div className="stat">
+          <b>{(d.storage.db_bytes / 1048576).toFixed(1)} MB</b>
+          <span>local database</span>
+        </div>
+      </section>
+      <section>
+        <h2>Courses</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Lectures</th>
+              <th>Recaps</th>
+              <th>Open flags</th>
+              <th>Pending</th>
+              <th>Last</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.courses.map((c) => (
+              <tr key={c.id}>
+                <td>{c.name}</td>
+                <td>{c.lectures}</td>
+                <td>{c.recaps}</td>
+                <td>{c.open_flags}</td>
+                <td>{c.pending_suggestions}</td>
+                <td className="muted">{c.last_lecture ? when(c.last_lecture) : '–'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <h2>Upcoming deadlines</h2>
+        {d.upcoming.length === 0 && <p className="muted">None confirmed yet.</p>}
+        {d.upcoming.map((s) => (
+          <p key={s.id} className="row">
+            <b>{s.payload.date}</b>
+            {s.payload.time ? ` ${s.payload.time}` : ''} · {s.payload.title} <span className="muted">· {s.payload.course_name} · {s.state}</span>
+          </p>
+        ))}
+        <h2>Model calls by stage</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th>Model</th>
+              <th>Calls</th>
+              <th>In</th>
+              <th>Out</th>
+              <th>Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.usage.by_stage.map((u, i) => (
+              <tr key={i}>
+                <td>{u.stage}</td>
+                <td className="muted">{u.model}</td>
+                <td>{u.calls}</td>
+                <td>{u.input_tokens}</td>
+                <td>{u.output_tokens}</td>
+                <td>${u.cost_usd.toFixed(4)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </main>
   )
 }
 
@@ -619,6 +739,28 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
         {L.status} · {L.asr_model} · rtf p95 {L.asr_rtf_p95 ?? '–'} · {L.power_state}
         {drain !== null ? ` · battery −${drain}%` : ''} · {d.segments.length} segments · {d.flags.length} flags · {d.gaps.length} gaps · Claude ${totalCost.toFixed(3)}
       </p>
+
+      <div className="controls">
+        <a className="button" href={`/api/lectures/${id}/export.md`}>
+          Export Markdown
+        </a>
+        <a className="button" href={`/api/lectures/${id}/export.json`} download={`lecture-${id}.json`}>
+          Export JSON
+        </a>
+        <button
+          className="danger"
+          disabled={busy !== null}
+          onClick={() => {
+            if (window.confirm('Delete this lecture and everything derived from it? This cannot be undone.'))
+              run('delete', async () => {
+                await api(`/api/lectures/${id}`, { method: 'DELETE' })
+                window.location.reload()
+              })
+          }}
+        >
+          Delete lecture
+        </button>
+      </div>
 
       <h3>Slides</h3>
       <div className="controls">

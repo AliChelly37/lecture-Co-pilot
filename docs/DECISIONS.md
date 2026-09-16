@@ -494,3 +494,7 @@ the eval says otherwise)
 - Cloudflare token permissions (user action) before the cloud provider can be tested.
 - ~~Local context budget~~ resolved: 16K on gemma3:4b; lecture chunking is part of M3/M4.
 - Tier thresholds (D22) are unvalidated constants until the OCW eval (M6).
+- M5 targets (Google Calendar via `calendar.app.created`, Notion via data-source
+  pages with a hidden `copilot_id`) are implemented and unit-tested against
+  fakes; real-service calls need the user's own credentials and are untested
+  until then.

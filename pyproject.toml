@@ -14,6 +14,7 @@ dependencies = [
     "faster-whisper>=1.2.1",
     "google-auth>=2.58.0",
     "google-auth-oauthlib>=1.4.1",
+    "mcp>=2.2.0",
     "numpy>=2.4.6",
     "nvidia-cublas-cu12>=12.9.2.10",
     "nvidia-cudnn-cu12>=9.26.0.51",
@@ -30,6 +31,7 @@ dependencies = [
 
 [project.scripts]
 lecture-copilot = "lecture_copilot:main"
+lecture-copilot-mcp = "lecture_copilot.mcp_server:main"
 
 [build-system]
 requires = ["uv_build>=0.11.21,<0.12.0"]
