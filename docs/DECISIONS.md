@@ -522,6 +522,79 @@ the eval says otherwise)
 
 ---
 
+## D24 - Eval design: labels by construction, one trust metric first
+**Date:** 2026-09-16
+**Status:** DECIDED by default (M6)
+
+- Extraction cases are **built, not annotated**: labelled administrative
+  utterances (commitments with computable dates, a correction pair, and traps:
+  hypothetical, joke, past reference, tentative, other course, unresolvable)
+  are inserted into filler at known times. Exact labels make the
+  false-one-tap count trustworthy; synthetic filler is the accepted
+  limitation until public lecture transcripts (D11) are added in the same
+  format.
+- The **headline metric is traps → one-tap** (target 0), before precision and
+  recall: one fake deadline one tap from the calendar is the failure that
+  ends trust.
+- The eval drives the **real pipeline** (chunking, gateway, evidence
+  location, date resolution, merge, tiers) with any provider, so provider
+  comparisons are like for like; every run appends to
+  `eval/results/summary.md` and stores a JSON record.
+- Recap faithfulness is split: a **deterministic citation check** now (does
+  the timestamp exist, does its window support the claim), judged
+  correctness later and only with a judge that isn't the generator.
+
+---
+
+## D25 - Deterministic guards between the model and the one-tap tier
+**Date:** 2026-09-16
+**Status:** DECIDED (each rule was added because the eval showed the failure)
+
+The local 4B model is treated as a noisy proposer; code decides what may
+reach one tap. Every rule below is a measured failure, not a hypothesis:
+- **Grounding.** A one-tap card's date words must appear in its own quote or
+  the located transcript line. (The model sprayed one real "next Thursday"
+  across the technical sentences of the same window: 7 false one-taps in a
+  case.)
+- **Guards read the transcript line, not only the model's quote.** Joke,
+  hypothetical and tentative markers demote or drop the card. (The model
+  quoted "The final exam is tonight at midnight" and omitted "I'm joking".)
+- **A course hint counts only if that course is in the spoken words.** (The
+  model invented codes like "CHEM 300" for the current course, demoting 4 of
+  5 midterm corrections.)
+- **No date expression and no date words → log, not "needs a date".** (Pure
+  technical sentences labelled "commitment" with date "None" flooded the
+  tray.)
+- **Date rescue.** When the model's date field doesn't resolve but the
+  transcript line names a date, and the quote matches that line strongly
+  (≥ 0.6 token overlap), the line's date is used at reduced confidence with an
+  honest note. ("chapter 11" in the date field for a line that says "week 6".)
+- **Resolver precedence.** An explicit weekday or month beats "today" /
+  "tomorrow" in the same phrase. ("quiz on Thursday covering everything up to
+  today" resolved to today.)
+- **Every card records why it landed where it did** (`tier_reason`), shown in
+  the Inbox and in the eval output, so the next failure is diagnosable.
+- **Third round, from run 3's reasons:** a spoken "your Statistics midterm"
+  names another course whatever the model's hint says; a plain "is due next
+  Monday at 9 a.m." line labelled *tentative* by the model is treated as a
+  commitment when no hedging word is present (the override is named in the
+  reason); "no date mentioned" applies whenever neither the date field nor the
+  line contains date words, not only when the field is empty; and the
+  **keyword filter is a fallback proposer**: a line with a strong term and a
+  resolvable date that the model reported nothing for becomes a card that can
+  only reach "needs a date". The model and the filter cross-check each other.
+- **Fourth round:** the fallback runs *after* merge and tiering, and a line
+  counts as covered only by a card the student will see or one that lost to a
+  correction; a junk model card that merely overlaps a line and is logged no
+  longer hides it (it hid three real deadlines in one case). Cards flagged
+  as another course's are excluded from merge similarity, so a later "your
+  Organic Chemistry midterm" can never supersede this course's midterm.
+- **Result on the synthetic cases (run 6):** one-tap precision 1.00, traps →
+  one-tap 0, false one-taps 0, needs-a-date → one-tap 0, one-tap recall 0.68,
+  surfaced recall 0.92, dates exact 16/17, $0.
+
+---
+
 ## Open items
 - Cloudflare token permissions (user action) before the cloud provider can be tested.
 - ~~Local context budget~~ resolved: 16K on gemma3:4b; lecture chunking is part of M3/M4.

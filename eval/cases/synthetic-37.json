@@ -1,0 +1,1459 @@
+{
+ "name": "synthetic-37",
+ "seed": 37,
+ "lecture_start": "2026-10-02T09:00:00+02:00",
+ "timezone": "Europe/Paris",
+ "term_calendar": {
+  "week1_start": "2026-09-07"
+ },
+ "segments": [
+  {
+   "t0": 0.0,
+   "t1": 2.4,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 2.9,
+   "t1": 8.5,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 9.0,
+   "t1": 15.4,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 15.9,
+   "t1": 23.1,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 23.6,
+   "t1": 35.2,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 35.7,
+   "t1": 41.3,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 41.8,
+   "t1": 48.2,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 48.7,
+   "t1": 53.9,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 54.4,
+   "t1": 56.4,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 56.9,
+   "t1": 65.3,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 65.8,
+   "t1": 76.2,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 76.7,
+   "t1": 87.1,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 87.6,
+   "t1": 93.6,
+   "text": "Problem set 6 is due next Friday at 5 p.m., submitted through the course website.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 94.1,
+   "t1": 100.5,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 101.0,
+   "t1": 109.4,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 109.9,
+   "t1": 115.1,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 115.6,
+   "t1": 121.2,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 121.7,
+   "t1": 133.3,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 133.8,
+   "t1": 139.4,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 139.9,
+   "t1": 141.9,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 142.4,
+   "t1": 144.8,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 145.3,
+   "t1": 151.7,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 152.2,
+   "t1": 157.4,
+   "text": "There will be a short quiz on Thursday covering everything up to today.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 157.9,
+   "t1": 165.1,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 165.6,
+   "t1": 174.0,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 174.5,
+   "t1": 180.9,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 181.4,
+   "t1": 187.0,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 187.5,
+   "t1": 193.9,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 194.4,
+   "t1": 206.0,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 206.5,
+   "t1": 216.9,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 217.4,
+   "t1": 223.0,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 223.5,
+   "t1": 225.9,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 226.4,
+   "t1": 233.6,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 234.1,
+   "t1": 236.1,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 236.6,
+   "t1": 241.8,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 242.3,
+   "t1": 253.9,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 254.4,
+   "t1": 260.0,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 260.5,
+   "t1": 266.9,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 267.4,
+   "t1": 274.6,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 275.1,
+   "t1": 280.3,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 280.8,
+   "t1": 291.2,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 291.7,
+   "t1": 298.1,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 298.6,
+   "t1": 300.6,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 301.1,
+   "t1": 309.5,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 310.0,
+   "t1": 315.6,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 316.1,
+   "t1": 318.5,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 319.0,
+   "t1": 324.2,
+   "text": "Project proposals are due on December 1st; one page, submitted as a PDF.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 324.7,
+   "t1": 335.1,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 335.6,
+   "t1": 341.2,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 341.7,
+   "t1": 348.1,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 348.6,
+   "t1": 354.6,
+   "text": "Problem set 9 is due next Thursday at 9 a.m., submitted through the course website.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 355.1,
+   "t1": 361.5,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 362.0,
+   "t1": 367.2,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 367.7,
+   "t1": 370.1,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 370.6,
+   "t1": 379.0,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 379.5,
+   "t1": 386.7,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 387.2,
+   "t1": 389.2,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 389.7,
+   "t1": 401.3,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 401.8,
+   "t1": 407.4,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 407.9,
+   "t1": 416.3,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 416.8,
+   "t1": 422.4,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 422.9,
+   "t1": 425.7,
+   "text": "The midterm exam is on November 5th.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 426.2,
+   "t1": 431.4,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 431.9,
+   "t1": 434.3,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 434.8,
+   "t1": 441.2,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 441.7,
+   "t1": 447.3,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 447.8,
+   "t1": 454.2,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 454.7,
+   "t1": 465.1,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 465.6,
+   "t1": 467.6,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 468.1,
+   "t1": 475.3,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 475.8,
+   "t1": 487.4,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 487.9,
+   "t1": 494.3,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 494.8,
+   "t1": 500.4,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 500.9,
+   "t1": 507.3,
+   "text": "Actually, let me correct that, the midterm has moved to November 12th, same room, same time.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 507.8,
+   "t1": 519.4,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 519.9,
+   "t1": 526.3,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 526.8,
+   "t1": 534.0,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 534.5,
+   "t1": 536.5,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 537.0,
+   "t1": 542.6,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 543.1,
+   "t1": 550.7,
+   "text": "Now, if this problem set were due tomorrow, you would all be panicking, but it is not, so relax.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 551.2,
+   "t1": 553.6,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 554.1,
+   "t1": 562.5,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 563.0,
+   "t1": 573.4,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 573.9,
+   "t1": 579.1,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 579.6,
+   "t1": 582.0,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 582.5,
+   "t1": 588.1,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 588.6,
+   "t1": 597.0,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 597.5,
+   "t1": 602.7,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 603.2,
+   "t1": 613.6,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 614.1,
+   "t1": 616.1,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 616.6,
+   "t1": 623.8,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 624.3,
+   "t1": 635.9,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 636.4,
+   "t1": 642.8,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 643.3,
+   "t1": 648.9,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 649.4,
+   "t1": 655.8,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 656.3,
+   "t1": 661.9,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 662.4,
+   "t1": 672.8,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 673.3,
+   "t1": 678.9,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 679.4,
+   "t1": 681.4,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 681.9,
+   "t1": 684.3,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 684.8,
+   "t1": 696.4,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 696.9,
+   "t1": 704.1,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 704.6,
+   "t1": 711.0,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 711.5,
+   "t1": 716.7,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 717.2,
+   "t1": 723.6,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 724.1,
+   "t1": 732.5,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 733.0,
+   "t1": 741.4,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 741.9,
+   "t1": 747.5,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 748.0,
+   "t1": 750.4,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 750.9,
+   "t1": 762.5,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 763.0,
+   "t1": 773.4,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 773.9,
+   "t1": 780.3,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 780.8,
+   "t1": 786.4,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 786.9,
+   "t1": 793.3,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 793.8,
+   "t1": 795.8,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 796.3,
+   "t1": 803.5,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 804.0,
+   "t1": 809.2,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 809.7,
+   "t1": 820.1,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 820.6,
+   "t1": 829.0,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 829.5,
+   "t1": 831.9,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 832.4,
+   "t1": 838.0,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 838.5,
+   "t1": 844.9,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 845.4,
+   "t1": 851.0,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 851.5,
+   "t1": 858.7,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 859.2,
+   "t1": 861.2,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 861.7,
+   "t1": 873.3,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 873.8,
+   "t1": 879.0,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 879.5,
+   "t1": 885.9,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 886.4,
+   "t1": 891.6,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 892.1,
+   "t1": 898.5,
+   "text": "The final exam is tonight at midnight. I'm joking, of course, it's in December like always.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 899.0,
+   "t1": 910.6,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 911.1,
+   "t1": 921.5,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 922.0,
+   "t1": 927.6,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 928.1,
+   "t1": 934.5,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 935.0,
+   "t1": 943.4,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 943.9,
+   "t1": 946.3,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 946.8,
+   "t1": 953.2,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 953.7,
+   "t1": 959.3,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 959.8,
+   "t1": 961.8,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 962.3,
+   "t1": 969.5,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 970.0,
+   "t1": 972.0,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 972.5,
+   "t1": 978.1,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 978.6,
+   "t1": 981.0,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 981.5,
+   "t1": 986.7,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 987.2,
+   "t1": 992.8,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 993.3,
+   "t1": 999.7,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1000.2,
+   "t1": 1008.6,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1009.1,
+   "t1": 1015.1,
+   "text": "Last year the midterm was in week six, but this year we pushed it back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1015.6,
+   "t1": 1022.0,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1022.5,
+   "t1": 1032.9,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1033.4,
+   "t1": 1040.6,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1041.1,
+   "t1": 1046.7,
+   "text": "We might do a second quiz around week eight, but I haven't decided yet.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1047.2,
+   "t1": 1058.8,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1059.3,
+   "t1": 1064.9,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1065.4,
+   "t1": 1067.4,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1067.9,
+   "t1": 1076.3,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1076.8,
+   "t1": 1082.4,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1082.9,
+   "t1": 1090.1,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1090.6,
+   "t1": 1102.2,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1102.7,
+   "t1": 1109.1,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1109.6,
+   "t1": 1116.0,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1116.5,
+   "t1": 1126.9,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1127.4,
+   "t1": 1129.8,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1130.3,
+   "t1": 1137.1,
+   "text": "By the way, I hear your Organic Chemistry midterm is on November 8th, so plan your week.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1137.6,
+   "t1": 1142.8,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1143.3,
+   "t1": 1148.9,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1149.4,
+   "t1": 1156.6,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1157.1,
+   "t1": 1163.5,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1164.0,
+   "t1": 1170.4,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1170.9,
+   "t1": 1179.3,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1179.8,
+   "t1": 1185.4,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1185.9,
+   "t1": 1191.1,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1191.6,
+   "t1": 1202.0,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1202.5,
+   "t1": 1204.5,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1205.0,
+   "t1": 1207.4,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1207.9,
+   "t1": 1219.5,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1220.0,
+   "t1": 1225.6,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1226.1,
+   "t1": 1232.5,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1233.0,
+   "t1": 1237.8,
+   "text": "The reading for next time is chapter eleven, sections one through four.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1238.3,
+   "t1": 1240.3,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1240.8,
+   "t1": 1252.4,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1252.9,
+   "t1": 1258.5,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1259.0,
+   "t1": 1264.2,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1264.7,
+   "t1": 1271.1,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1271.6,
+   "t1": 1274.0,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1274.5,
+   "t1": 1281.7,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1282.2,
+   "t1": 1290.6,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1291.1,
+   "t1": 1301.5,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1302.0,
+   "t1": 1309.2,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1309.7,
+   "t1": 1312.1,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1312.6,
+   "t1": 1318.2,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1318.7,
+   "t1": 1329.1,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1329.6,
+   "t1": 1331.6,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1332.1,
+   "t1": 1337.7,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1338.2,
+   "t1": 1344.6,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1345.1,
+   "t1": 1356.7,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1357.2,
+   "t1": 1363.6,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1364.1,
+   "t1": 1372.5,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1373.0,
+   "t1": 1378.2,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1378.7,
+   "t1": 1383.9,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1384.4,
+   "t1": 1390.0,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1390.5,
+   "t1": 1396.9,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1397.4,
+   "t1": 1404.6,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1405.1,
+   "t1": 1416.7,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1417.2,
+   "t1": 1423.6,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1424.1,
+   "t1": 1434.5,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1435.0,
+   "t1": 1437.4,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1437.9,
+   "t1": 1446.3,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1446.8,
+   "t1": 1448.8,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1449.3,
+   "t1": 1454.9,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1455.4,
+   "t1": 1465.8,
+   "text": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1466.3,
+   "t1": 1474.7,
+   "text": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1475.2,
+   "t1": 1480.4,
+   "text": "Today we continue with phase equilibrium, and in particular the concept of fugacity.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1480.9,
+   "t1": 1482.9,
+   "text": "﻿Welcome back everyone.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1483.4,
+   "t1": 1489.0,
+   "text": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1489.5,
+   "t1": 1491.9,
+   "text": "Do not email it to me.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1492.4,
+   "t1": 1498.8,
+   "text": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1499.3,
+   "t1": 1506.5,
+   "text": "The Navier-Stokes equations are not relevant here, that was a joke for the fluids students in the back.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1507.0,
+   "t1": 1512.6,
+   "text": "Let me now go to the board and write the residual Gibbs energy expression.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1513.1,
+   "t1": 1519.5,
+   "text": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one.",
+   "asr_conf": 0.85
+  },
+  {
+   "t0": 1520.0,
+   "t1": 1531.6,
+   "text": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state.",
+   "asr_conf": 0.85
+  }
+ ],
+ "gold": [
+  {
+   "title": "Problem set 6",
+   "type": "assignment",
+   "intent": "commitment",
+   "date": "2026-10-09",
+   "time": "17:00",
+   "expect": "one_tap",
+   "t0": 87.6,
+   "text": "Problem set 6 is due next Friday at 5 p.m., submitted through the course website."
+  },
+  {
+   "title": "quiz",
+   "type": "quiz",
+   "intent": "commitment",
+   "date": "2026-10-08",
+   "time": null,
+   "expect": "one_tap",
+   "t0": 152.2,
+   "text": "There will be a short quiz on Thursday covering everything up to today."
+  },
+  {
+   "title": "project proposal",
+   "type": "project",
+   "intent": "commitment",
+   "date": "2026-12-01",
+   "time": null,
+   "expect": "one_tap",
+   "t0": 319.0,
+   "text": "Project proposals are due on December 1st; one page, submitted as a PDF."
+  },
+  {
+   "title": "Problem set 9",
+   "type": "assignment",
+   "intent": "commitment",
+   "date": "2026-10-08",
+   "time": "09:00",
+   "expect": "one_tap",
+   "t0": 348.6,
+   "text": "Problem set 9 is due next Thursday at 9 a.m., submitted through the course website."
+  },
+  {
+   "title": "midterm exam",
+   "type": "exam",
+   "intent": "superseded",
+   "date": "2026-11-05",
+   "time": null,
+   "expect": "absent",
+   "t0": 422.9,
+   "text": "The midterm exam is on November 5th."
+  },
+  {
+   "title": "midterm exam",
+   "type": "exam",
+   "intent": "correction",
+   "date": "2026-11-12",
+   "time": null,
+   "expect": "one_tap",
+   "t0": 500.9,
+   "text": "Actually, let me correct that, the midterm has moved to November 12th, same room, same time."
+  },
+  {
+   "title": "hypothetical problem set",
+   "type": "assignment",
+   "intent": "hypothetical",
+   "date": null,
+   "time": null,
+   "expect": "absent",
+   "t0": 543.1,
+   "text": "Now, if this problem set were due tomorrow, you would all be panicking, but it is not, so relax."
+  },
+  {
+   "title": "joke exam",
+   "type": "exam",
+   "intent": "joke",
+   "date": null,
+   "time": null,
+   "expect": "absent",
+   "t0": 892.1,
+   "text": "The final exam is tonight at midnight. I'm joking, of course, it's in December like always."
+  },
+  {
+   "title": "last year's midterm",
+   "type": "exam",
+   "intent": "past_reference",
+   "date": null,
+   "time": null,
+   "expect": "absent",
+   "t0": 1009.1,
+   "text": "Last year the midterm was in week six, but this year we pushed it back."
+  },
+  {
+   "title": "second quiz",
+   "type": "quiz",
+   "intent": "tentative",
+   "date": null,
+   "time": null,
+   "expect": "maybe",
+   "t0": 1041.1,
+   "text": "We might do a second quiz around week eight, but I haven't decided yet."
+  },
+  {
+   "title": "Organic Chemistry midterm",
+   "type": "exam",
+   "intent": "other_course",
+   "date": "2026-11-08",
+   "time": null,
+   "expect": "maybe",
+   "t0": 1130.3,
+   "text": "By the way, I hear your Organic Chemistry midterm is on November 8th, so plan your week."
+  },
+  {
+   "title": "reading chapter 11",
+   "type": "reading",
+   "intent": "commitment",
+   "date": null,
+   "time": null,
+   "expect": "maybe",
+   "t0": 1233.0,
+   "text": "The reading for next time is chapter eleven, sections one through four."
+  }
+ ]
+}

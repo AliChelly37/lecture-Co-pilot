@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from lecture_copilot.align import SlideAligner, coverage, off_slide_stretches
-from lecture_copilot.dates import DateResolver
+from lecture_copilot.dates import DateResolver, Resolution, find_date_phrases
 from lecture_copilot.deck import SLIDE_INDEX_SYSTEM, SlideIndex, extract_deck, index_to_json, slide_index_user_message
 from lecture_copilot.extract import (
     EXTRACT_SYSTEM,
@@ -20,7 +20,7 @@ from lecture_copilot.extract import (
     chunk_prompt,
     chunk_segments,
     clean_hint,
-    locate,
+    locate_segment,
     merge,
 )
 from lecture_copilot.llm import LlmGateway
@@ -45,7 +45,7 @@ from lecture_copilot.recap import (
     window_text,
 )
 from lecture_copilot.store import Store
-from lecture_copilot.suggest import SuggestionService
+from lecture_copilot.suggest import SuggestionService, tier_and_reason
 
 log = logging.getLogger(__name__)
 
@@ -116,6 +116,79 @@ def import_photos(store: Store, llm: LlmGateway, lecture: dict, course: dict, fi
     return store.board_captures(lecture["id"])
 
 
+STRONG_TERMS = {
+    "due",
+    "deadline",
+    "exam",
+    "midterm",
+    "final exam",
+    "quiz",
+    "problem set",
+    "pset",
+    "homework",
+    "assignment",
+    "hand in",
+    "submit",
+    "submission",
+    "reading for",
+    "read chapter",
+    "lab report",
+    "project proposal",
+    "coursework",
+}
+
+
+def trigger_fallback(segments: list[dict], cands: list[Candidate], resolver: DateResolver, course_name: str) -> list[Candidate]:
+    """The keyword filter and the model cross-check each other: a line with a
+    strong administrative term and a resolvable date that the model reported
+    nothing for becomes a low-confidence candidate. It can only reach the
+    "needs a date" tray (see tier_and_reason), never one tap."""
+    covered = [c.t0 for c in cands if c.t0 is not None]
+    out: list[Candidate] = []
+    for s in segments:
+        terms = s.get("trigger_terms") or []
+        strong = [t for t in terms if t in STRONG_TERMS]
+        if not strong or any(abs(float(s["t0"]) - t) <= 3.0 for t in covered):
+            continue
+        phrases = find_date_phrases(s["text"])
+        if not phrases:
+            continue
+        res = resolver.resolve(phrases[0])
+        if not res.resolved:
+            continue
+        kind = (
+            "exam"
+            if any(k in strong for k in ("exam", "midterm", "final exam"))
+            else "quiz"
+            if "quiz" in strong
+            else "reading"
+            if any(k in strong for k in ("reading for", "read chapter"))
+            else "project"
+            if "project proposal" in strong
+            else "assignment"
+        )
+        title = s["text"].split(";")[0].split(",")[0].strip().rstrip(".")
+        if len(title) > 50:
+            title = title[:50].rsplit(" ", 1)[0]
+        out.append(
+            Candidate(
+                kind,
+                title,
+                phrases[0],
+                "",
+                "commitment",
+                s["text"],
+                0.6,
+                "",
+                float(s["t0"]),
+                float(s.get("asr_conf") or 1.0),
+                Resolution(res.date, res.time, f"found by the keyword filter: {res.note}", min(res.confidence, 0.7)),
+                extras={"segment_text": s["text"], "course_name": course_name, "source": "trigger"},
+            )
+        )
+    return out
+
+
 def extract_lecture(store: Store, llm: LlmGateway, lecture_id: str, window_s: float = 600.0, overlap_s: float = 60.0) -> dict:
     """Deadline extraction after the lecture (D15): windows sized for the
     provider, one schema-constrained call per window, then code resolves
@@ -151,13 +224,29 @@ def extract_lecture(store: Store, llm: LlmGateway, lecture_id: str, window_s: fl
             max_tokens=2000,
         )
         for e in out.events:
-            t0, asr_conf = locate(e.evidence_quote, ch.segments)
+            seg = locate_segment(e.evidence_quote, ch.segments)
+            t0 = float(seg["t0"]) if seg else None
+            asr_conf = float(seg.get("asr_conf") or 1.0) if seg else 1.0
             res = resolver.resolve(e.date_expression, e.time_expression or None)
+            date_expr = e.date_expression
+            # Date rescue only from a line the quote clearly matches (a loose match could
+            # borrow a neighbouring sentence's date).
+            if not res.resolved and seg and locate_segment(e.evidence_quote, [seg], min_score=0.6):
+                # The model put the wrong words in the date field, but the transcript
+                # line itself names a date. Lower confidence, honest note.
+                for phrase in find_date_phrases(seg["text"]):
+                    rescued = resolver.resolve(phrase, e.time_expression or None)
+                    if rescued.resolved:
+                        res = Resolution(
+                            rescued.date, rescued.time, f"date taken from the transcript line: {rescued.note}", min(rescued.confidence, 0.7)
+                        )
+                        date_expr = phrase
+                        break
             cands.append(
                 Candidate(
                     e.type,
                     e.title,
-                    e.date_expression,
+                    date_expr,
                     e.time_expression,
                     e.intent,
                     e.evidence_quote,
@@ -167,9 +256,26 @@ def extract_lecture(store: Store, llm: LlmGateway, lecture_id: str, window_s: fl
                     asr_conf,
                     res,
                     chunk=ch.index,
+                    extras={"segment_text": seg["text"] if seg else None, "course_name": course["name"]},
                 )
             )
+    lecture_date = datetime.fromisoformat(lecture["started_at"]).date()
+    for c in cands:
+        if tier_and_reason(c, lecture_date)[1].startswith("mentioned for another course"):
+            c.extras["other_course"] = True  # never merged with this course's events
     merge(cands)
+    # The fallback runs after merge and tiering. A line counts as covered when the
+    # model produced a real card for it (including one that lost to a correction);
+    # a junk card that merely overlaps a line and is logged must not block the
+    # filter (measured: it hid three real deadlines in one case).
+    covering: list[Candidate] = []
+    for c in cands:
+        if c.status in ("duplicate", "superseded") or tier_and_reason(c, lecture_date)[0] != "log":
+            covering.append(c)
+    fallback = trigger_fallback(segments, covering, resolver, course["name"])
+    if fallback:
+        cands += fallback
+        merge(cands)  # a fallback correction can still supersede an earlier date
     for c in cands:
         c.id = store.add_candidate(
             lecture_id,

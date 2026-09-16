@@ -1,0 +1,1075 @@
+{
+ "label": "ollama:gemma3:4b+guards",
+ "at": "20260916-145745",
+ "cases": [
+  {
+   "case": "synthetic-11",
+   "score": {
+    "name": "synthetic-11",
+    "gold_one_tap": 5,
+    "one_tap_hits": 2,
+    "one_tap_in_maybe": 2,
+    "one_tap_missed": 1,
+    "one_tap_preds": 2,
+    "false_one_taps": 0,
+    "trap_one_taps": 0,
+    "date_exact": 1,
+    "date_checked": 2,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "date mismatch for 'project proposal': got 2026-10-08 expected 2026-11-14",
+     "'reading week 6' only reached the maybe tray",
+     "missed: 'project proposal' (commitment)",
+     "'midterm exam' only reached the maybe tray"
+    ],
+    "precision": 1.0,
+    "recall": 0.4,
+    "date_exact_rate": 0.5
+   },
+   "meta": {
+    "predictions": [
+     {
+      "tier": "maybe",
+      "title": "Reading for week 6",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "chapter 11",
+      "confidence": 0.95,
+      "reason": "could not resolve 'chapter 11'",
+      "quote": "The reading for week 6 is chapter 11; make sure it is done before that week's lecture."
+     },
+     {
+      "tier": "one_tap",
+      "title": "Project proposals",
+      "intent": "commitment",
+      "date": "2026-10-08",
+      "date_expression": "October 8th",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "Project proposals are due on October 8th; one page, submitted as a PDF."
+     },
+     {
+      "tier": "one_tap",
+      "title": "Lab report",
+      "intent": "commitment",
+      "date": "2026-10-28",
+      "date_expression": "October 28th",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "Please hand in the lab report by October 28th, no extensions this time."
+     },
+     {
+      "tier": "maybe",
+      "title": "second quiz",
+      "intent": "tentative",
+      "date": "2026-10-26",
+      "date_expression": "around week eight",
+      "confidence": 0.75,
+      "reason": "intent tentative",
+      "quote": "We might do a second quiz around week eight, but I haven't decided yet."
+     },
+     {
+      "tier": "maybe",
+      "title": "quiz",
+      "intent": "tentative",
+      "date": "2026-10-26",
+      "date_expression": "around week eight",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "[18:22] We might do a second quiz around week eight, but I haven't decided yet."
+     },
+     {
+      "tier": "maybe",
+      "title": "midterm",
+      "intent": "commitment",
+      "date": "2026-11-04",
+      "date_expression": "November 4th",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: OCM 201",
+      "quote": "[21:05] By the way, I hear your Organic Chemistry midterm is on November 4th, so plan your week."
+     },
+     {
+      "tier": "maybe",
+      "title": "chapter eleven, sections one through four",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "next time",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "[23:22] The reading for next time is chapter eleven, sections one through four."
+     },
+     {
+      "tier": "maybe",
+      "title": "residual Gibbs energy expression",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "[18:09] Let me now go to the board and write the residual Gibbs energy expression."
+     },
+     {
+      "tier": "maybe",
+      "title": "example with nitrogen at three hundred kelvin and fifty bar",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "[18:15] Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar."
+     },
+     {
+      "tier": "maybe",
+      "title": "fugacity",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "[18:47] Fugacity is the effective pressure that replaces the real pressure in the expression for the"
+     },
+     {
+      "tier": "maybe",
+      "title": "peng-Robinson equation of state",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "[19:21] For a real gas we compute the fugacity coefficient from an equation of state, and the one we"
+     },
+     {
+      "tier": "maybe",
+      "title": "integral from zero to P of Z minus one over P, d P",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "[18:28] The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one o"
+     },
+     {
+      "tier": "maybe",
+      "title": "do not email it to me",
+      "intent": "correction",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "[18:58] Do not email it to me."
+     }
+    ],
+    "elapsed_s": 91.7,
+    "calls": 3,
+    "input_tokens": 7351,
+    "output_tokens": 4006,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 35,
+     "surfaced": 13,
+     "suggestions": {
+      "one_tap": 2,
+      "maybe": 11,
+      "log": 22,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  },
+  {
+   "case": "synthetic-23",
+   "score": {
+    "name": "synthetic-23",
+    "gold_one_tap": 5,
+    "one_tap_hits": 4,
+    "one_tap_in_maybe": 0,
+    "one_tap_missed": 1,
+    "one_tap_preds": 6,
+    "false_one_taps": 1,
+    "trap_one_taps": 1,
+    "date_exact": 4,
+    "date_checked": 4,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "missed: 'reading week 6' (commitment)",
+     "TRAP reached one-tap: 'joke exam' (joke) as 'final exam' 2026-12-01",
+     "unmatched one-tap: 'second quiz' 2026-10-26 \u2014 \"[17:59] We might do a second quiz around week eight, but I haven't decided yet.\""
+    ],
+    "precision": 0.667,
+    "recall": 0.8,
+    "date_exact_rate": 1.0
+   },
+   "meta": {
+    "predictions": [
+     {
+      "tier": "one_tap",
+      "title": "Problem set 4",
+      "intent": "commitment",
+      "date": "2026-09-28",
+      "date_expression": "next Monday at 9 a.m.",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "Problem set 4 is due next Monday at 9 a.m., submitted through the course website."
+     },
+     {
+      "tier": "one_tap",
+      "title": "Short Quiz",
+      "intent": "commitment",
+      "date": "2026-09-22",
+      "date_expression": "Tuesday",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "There will be a short quiz on Tuesday covering everything up to today."
+     },
+     {
+      "tier": "one_tap",
+      "title": "Lab Report",
+      "intent": "commitment",
+      "date": "2026-10-18",
+      "date_expression": "October 18th",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "Please hand in the lab report by October 18th, no extensions this time."
+     },
+     {
+      "tier": "one_tap",
+      "title": "Chapter 11",
+      "intent": "correction",
+      "date": "2026-10-28",
+      "date_expression": "October 28th",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "Actually, let me correct that, the midterm has moved to October 28th, same room, same time."
+     },
+     {
+      "tier": "maybe",
+      "title": "Peng-Robinson equation of state",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "in this course",
+      "confidence": 0.95,
+      "reason": "could not resolve 'in this course'",
+      "quote": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will us"
+     },
+     {
+      "tier": "maybe",
+      "title": "Peng-Robinson equation of state",
+      "intent": "commitment",
+      "date": "2026-09-24",
+      "date_expression": "N/A",
+      "confidence": 0.95,
+      "reason": "date words not in the quoted sentence",
+      "quote": "the one we will use in this course is the Peng-Robinson equation of state."
+     },
+     {
+      "tier": "maybe",
+      "title": "second quiz",
+      "intent": "tentative",
+      "date": "2026-10-26",
+      "date_expression": "around week eight",
+      "confidence": 0.75,
+      "reason": "intent tentative",
+      "quote": "We might do a second quiz around week eight, but I haven't decided yet."
+     },
+     {
+      "tier": "one_tap",
+      "title": "final exam",
+      "intent": "commitment",
+      "date": "2026-12-01",
+      "date_expression": "December",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "it's in December like always."
+     },
+     {
+      "tier": "one_tap",
+      "title": "second quiz",
+      "intent": "commitment",
+      "date": "2026-10-26",
+      "date_expression": "around week eight",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "[17:59] We might do a second quiz around week eight, but I haven't decided yet."
+     },
+     {
+      "tier": "maybe",
+      "title": "Statistics midterm",
+      "intent": "commitment",
+      "date": "2026-10-15",
+      "date_expression": "October 15th",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: Statistics",
+      "quote": "[21:55] By the way, I hear your Statistics midterm is on October 15th, so plan your week."
+     },
+     {
+      "tier": "maybe",
+      "title": "residual Gibbs energy expression",
+      "intent": "commitment",
+      "date": "2026-09-24",
+      "date_expression": "N/A",
+      "confidence": 0.95,
+      "reason": "date words not in the quoted sentence",
+      "quote": "[18:36] Let me now go to the board and write the residual Gibbs energy expression."
+     },
+     {
+      "tier": "maybe",
+      "title": "fugacity",
+      "intent": "commitment",
+      "date": "2026-09-24",
+      "date_expression": "N/A",
+      "confidence": 0.95,
+      "reason": "date words not in the quoted sentence",
+      "quote": "[18:45] Fugacity is the effective pressure that replaces the real pressure in the expression for the"
+     },
+     {
+      "tier": "maybe",
+      "title": "nitrogen at three hundred kelvin and fifty bar",
+      "intent": "commitment",
+      "date": "2026-09-24",
+      "date_expression": "N/A",
+      "confidence": 0.95,
+      "reason": "date words not in the quoted sentence",
+      "quote": "[18:12] Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar."
+     },
+     {
+      "tier": "maybe",
+      "title": "residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature",
+      "intent": "commitment",
+      "date": "2026-09-24",
+      "date_expression": "N/A",
+      "confidence": 0.95,
+      "reason": "date words not in the quoted sentence",
+      "quote": "[18:19] The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one o"
+     },
+     {
+      "tier": "maybe",
+      "title": "ideal gas",
+      "intent": "commitment",
+      "date": "2026-09-24",
+      "date_expression": "N/A",
+      "confidence": 0.95,
+      "reason": "date words not in the quoted sentence",
+      "quote": "[20:00] Notice that this integral vanishes for an ideal gas because Z is identically one."
+     }
+    ],
+    "elapsed_s": 86.3,
+    "calls": 3,
+    "input_tokens": 7329,
+    "output_tokens": 3763,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 33,
+     "surfaced": 15,
+     "suggestions": {
+      "one_tap": 6,
+      "maybe": 9,
+      "log": 18,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  },
+  {
+   "case": "synthetic-37",
+   "score": {
+    "name": "synthetic-37",
+    "gold_one_tap": 5,
+    "one_tap_hits": 2,
+    "one_tap_in_maybe": 3,
+    "one_tap_missed": 0,
+    "one_tap_preds": 2,
+    "false_one_taps": 0,
+    "trap_one_taps": 0,
+    "date_exact": 2,
+    "date_checked": 2,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "'Problem set 6' only reached the maybe tray",
+     "'Problem set 9' only reached the maybe tray",
+     "'midterm exam' only reached the maybe tray"
+    ],
+    "precision": 1.0,
+    "recall": 0.4,
+    "date_exact_rate": 1.0
+   },
+   "meta": {
+    "predictions": [
+     {
+      "tier": "one_tap",
+      "title": "Quiz",
+      "intent": "commitment",
+      "date": "2026-10-08",
+      "date_expression": "Thursday covering everything up to today",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "There will be a short quiz on Thursday covering everything up to today."
+     },
+     {
+      "tier": "one_tap",
+      "title": "Project proposals",
+      "intent": "commitment",
+      "date": "2026-12-01",
+      "date_expression": "December 1st",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "Project proposals are due on December 1st; one page, submitted as a PDF."
+     },
+     {
+      "tier": "maybe",
+      "title": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas.",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemica"
+     },
+     {
+      "tier": "maybe",
+      "title": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature.",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d"
+     },
+     {
+      "tier": "maybe",
+      "title": "Notice that this integral vanishes for an ideal gas because Z is identically one.",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Notice that this integral vanishes for an ideal gas because Z is identically one."
+     },
+     {
+      "tier": "maybe",
+      "title": "problem set",
+      "intent": "commitment",
+      "date": "2026-10-03",
+      "date_expression": "if this problem set were due tomorrow",
+      "confidence": 0.95,
+      "reason": "the quote sounds hypothetical",
+      "quote": "Now, if this problem set were due tomorrow, you would all be panicking, but it is not, so relax."
+     },
+     {
+      "tier": "maybe",
+      "title": "quiz",
+      "intent": "tentative",
+      "date": "2026-10-26",
+      "date_expression": "around week eight",
+      "confidence": 0.85,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "We might do a second quiz around week eight, but I haven't decided yet."
+     },
+     {
+      "tier": "maybe",
+      "title": "midterm",
+      "intent": "commitment",
+      "date": "2026-11-08",
+      "date_expression": "November 8th",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: ORGA 201",
+      "quote": "By the way, I hear your Organic Chemistry midterm is on November 8th, so plan your week."
+     },
+     {
+      "tier": "maybe",
+      "title": "residual Gibbs energy expression",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "at constant temperature",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d"
+     },
+     {
+      "tier": "maybe",
+      "title": "fugacity",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemica"
+     },
+     {
+      "tier": "maybe",
+      "title": "Peng-Robinson equation of state",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "in this course",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "The one we will use in this course is the Peng-Robinson equation of state."
+     },
+     {
+      "tier": "maybe",
+      "title": "nitrogen",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "three hundred kelvin and fifty bar",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar."
+     },
+     {
+      "tier": "maybe",
+      "title": "exam",
+      "intent": "commitment",
+      "date": "2026-10-03",
+      "date_expression": "midnight",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 300",
+      "quote": "Do not email it to me."
+     },
+     {
+      "tier": "maybe",
+      "title": "Organic Chemistry midterm",
+      "intent": "commitment",
+      "date": "2026-11-08",
+      "date_expression": "November 8th",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: Organic Chemistry",
+      "quote": "By the way, I hear your Organic Chemistry midterm is on November 8th, so plan your week."
+     },
+     {
+      "tier": "maybe",
+      "title": "chapter eleven, sections one through four",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "next time",
+      "confidence": 0.95,
+      "reason": "'next time' needs the course schedule (next lecture date unknown)",
+      "quote": "The reading for next time is chapter eleven, sections one through four."
+     },
+     {
+      "tier": "maybe",
+      "title": "residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d"
+     },
+     {
+      "tier": "maybe",
+      "title": "fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemica"
+     },
+     {
+      "tier": "maybe",
+      "title": "Let me now go to the board and write the residual Gibbs energy expression",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "Let me now go to the board and write the residual Gibbs energy expression."
+     },
+     {
+      "tier": "maybe",
+      "title": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar."
+     },
+     {
+      "tier": "maybe",
+      "title": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one."
+     },
+     {
+      "tier": "maybe",
+      "title": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will use in this course is the Peng-Robinson equation of state",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will us"
+     },
+     {
+      "tier": "maybe",
+      "title": "Do not email it to me",
+      "intent": "correction",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "Do not email it to me."
+     },
+     {
+      "tier": "maybe",
+      "title": "Notice that this integral vanishes for an ideal gas because Z is identically one",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "Notice that this integral vanishes for an ideal gas because Z is identically one."
+     },
+     {
+      "tier": "maybe",
+      "title": "Today we continue with phase equilibrium, and in particular the concept of fugacity",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "none",
+      "confidence": 0.95,
+      "reason": "could not resolve 'none'",
+      "quote": "Today we continue with phase equilibrium, and in particular the concept of fugacity."
+     }
+    ],
+    "elapsed_s": 98.0,
+    "calls": 3,
+    "input_tokens": 7350,
+    "output_tokens": 4247,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 41,
+     "surfaced": 25,
+     "suggestions": {
+      "one_tap": 2,
+      "maybe": 22,
+      "log": 17,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  },
+  {
+   "case": "synthetic-41",
+   "score": {
+    "name": "synthetic-41",
+    "gold_one_tap": 5,
+    "one_tap_hits": 3,
+    "one_tap_in_maybe": 2,
+    "one_tap_missed": 0,
+    "one_tap_preds": 3,
+    "false_one_taps": 0,
+    "trap_one_taps": 0,
+    "date_exact": 2,
+    "date_checked": 3,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "date mismatch for 'quiz': got 2026-09-18 expected 2026-09-22",
+     "'quiz' only reached the maybe tray",
+     "'midterm exam' only reached the maybe tray"
+    ],
+    "precision": 1.0,
+    "recall": 0.6,
+    "date_exact_rate": 0.667
+   },
+   "meta": {
+    "predictions": [
+     {
+      "tier": "one_tap",
+      "title": "lab report",
+      "intent": "commitment",
+      "date": "2026-10-20",
+      "date_expression": "October 20th",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "Please hand in the lab report by October 20th, no extensions this time."
+     },
+     {
+      "tier": "one_tap",
+      "title": "project proposals",
+      "intent": "commitment",
+      "date": "2026-11-09",
+      "date_expression": "November 9th",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "Project proposals are due on November 9th; one page, submitted as a PDF."
+     },
+     {
+      "tier": "one_tap",
+      "title": "quiz",
+      "intent": "commitment",
+      "date": "2026-09-18",
+      "date_expression": "Friday",
+      "confidence": 0.95,
+      "reason": "commitment with a grounded, resolved future date",
+      "quote": "There will be a short quiz on Friday covering everything up to today."
+     },
+     {
+      "tier": "maybe",
+      "title": "residual Gibbs energy expression",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Let me now go to the board and write the residual Gibbs energy expression."
+     },
+     {
+      "tier": "maybe",
+      "title": "residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d"
+     },
+     {
+      "tier": "maybe",
+      "title": "fugacity",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemica"
+     },
+     {
+      "tier": "maybe",
+      "title": "Peng-Robinson equation of state",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "The one we will use in this course is the Peng-Robinson equation of state."
+     },
+     {
+      "tier": "maybe",
+      "title": "ideal gas",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Notice that this integral vanishes for an ideal gas because Z is identically one."
+     },
+     {
+      "tier": "maybe",
+      "title": "nitrogen at three hundred kelvin and fifty bar",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar."
+     },
+     {
+      "tier": "maybe",
+      "title": "fugacity equals the pressure",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "For an ideal gas the fugacity equals the pressure, and the fugacity coefficient is exactly one."
+     },
+     {
+      "tier": "maybe",
+      "title": "fugacity is the effective pressure that replaces the real pressure in the expression for the chemical potential of a real gas",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemica"
+     },
+     {
+      "tier": "maybe",
+      "title": "Z",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Notice that this integral vanishes for an ideal gas because Z is identically one."
+     },
+     {
+      "tier": "maybe",
+      "title": "Do not email it to me",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "Do not email it to me",
+      "confidence": 0.95,
+      "reason": "could not resolve 'Do not email it to me'",
+      "quote": "Do not email it to me"
+     },
+     {
+      "tier": "maybe",
+      "title": "Midterm",
+      "intent": "commitment",
+      "date": "2026-11-11",
+      "date_expression": "November 11th",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: Linear Algebra",
+      "quote": "I hear your Linear Algebra midterm is on November 11th, so plan your week."
+     },
+     {
+      "tier": "maybe",
+      "title": "Reading",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "chapter eleven, sections one through four",
+      "confidence": 0.95,
+      "reason": "could not resolve 'chapter eleven, sections one through four'",
+      "quote": "The reading for next time is chapter eleven, sections one through four."
+     },
+     {
+      "tier": "maybe",
+      "title": "Quiz",
+      "intent": "tentative",
+      "date": "2026-10-26",
+      "date_expression": "around week eight",
+      "confidence": 0.85,
+      "reason": "intent tentative",
+      "quote": "We might do a second quiz around week eight, but I haven't decided yet."
+     },
+     {
+      "tier": "maybe",
+      "title": "Example Calculation",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "three hundred kelvin and fifty bar",
+      "confidence": 0.95,
+      "reason": "could not resolve 'three hundred kelvin and fifty bar'",
+      "quote": "Let us work through an example with nitrogen at three hundred kelvin and fifty bar."
+     }
+    ],
+    "elapsed_s": 93.2,
+    "calls": 3,
+    "input_tokens": 7312,
+    "output_tokens": 4334,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 37,
+     "surfaced": 17,
+     "suggestions": {
+      "one_tap": 3,
+      "maybe": 14,
+      "log": 20,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  },
+  {
+   "case": "synthetic-59",
+   "score": {
+    "name": "synthetic-59",
+    "gold_one_tap": 5,
+    "one_tap_hits": 0,
+    "one_tap_in_maybe": 5,
+    "one_tap_missed": 0,
+    "one_tap_preds": 0,
+    "false_one_taps": 0,
+    "trap_one_taps": 0,
+    "date_exact": 0,
+    "date_checked": 0,
+    "maybe_expected": 3,
+    "maybe_hits": 2,
+    "details": [
+     "'Problem set 3' only reached the maybe tray",
+     "'lab report' only reached the maybe tray",
+     "'Problem set 5' only reached the maybe tray",
+     "'reading week 6' only reached the maybe tray",
+     "'midterm exam' only reached the maybe tray",
+     "maybe-tier item not surfaced: 'Linear Algebra midterm'"
+    ],
+    "precision": 1.0,
+    "recall": 0.0,
+    "date_exact_rate": null
+   },
+   "meta": {
+    "predictions": [
+     {
+      "tier": "maybe",
+      "title": "Lab report",
+      "intent": "commitment",
+      "date": "2026-10-20",
+      "date_expression": "October 20th",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 345",
+      "quote": "Please hand in the lab report by October 20th, no extensions this time."
+     },
+     {
+      "tier": "maybe",
+      "title": "Chapter 10",
+      "intent": "commitment",
+      "date": "2026-10-12",
+      "date_expression": "week 6",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 345",
+      "quote": "The reading for week 6 is chapter 10; make sure it is done before that week's lecture."
+     },
+     {
+      "tier": "maybe",
+      "title": "Midterm exam",
+      "intent": "correction",
+      "date": "2026-11-11",
+      "date_expression": "November 11th",
+      "confidence": 0.95,
+      "reason": "mentioned for another course: CHEM 345",
+      "quote": "Actually, let me correct that, the midterm has moved to November 11th, same room, same time."
+     },
+     {
+      "tier": "maybe",
+      "title": "problem set",
+      "intent": "tentative",
+      "date": "2026-09-22",
+      "date_expression": "tomorrow",
+      "confidence": 0.85,
+      "reason": "the quote sounds hypothetical",
+      "quote": "Now, if this problem set were due tomorrow, you would all be panicking, but it is not, so relax."
+     },
+     {
+      "tier": "maybe",
+      "title": "instruction",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Do not email it to me."
+     },
+     {
+      "tier": "maybe",
+      "title": "integral",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Notice that this integral vanishes for an ideal gas because Z is identically one."
+     },
+     {
+      "tier": "maybe",
+      "title": "fugacity",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "Fugacity is the effective pressure that replaces the real pressure in the expression for the chemica"
+     },
+     {
+      "tier": "maybe",
+      "title": "residual Gibbs energy",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "None",
+      "confidence": 0.95,
+      "reason": "could not resolve 'None'",
+      "quote": "The residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d"
+     },
+     {
+      "tier": "maybe",
+      "title": "example",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "three hundred kelvin and fifty bar",
+      "confidence": 0.95,
+      "reason": "could not resolve 'three hundred kelvin and fifty bar'",
+      "quote": "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar."
+     },
+     {
+      "tier": "maybe",
+      "title": "equation of state",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "Peng-Robinson",
+      "confidence": 0.95,
+      "reason": "could not resolve 'Peng-Robinson'",
+      "quote": "For a real gas we compute the fugacity coefficient from an equation of state, and the one we will us"
+     },
+     {
+      "tier": "maybe",
+      "title": "reading",
+      "intent": "commitment",
+      "date": null,
+      "date_expression": "chapter eleven, sections one through four",
+      "confidence": 0.95,
+      "reason": "could not resolve 'chapter eleven, sections one through four'",
+      "quote": "The reading for next time is chapter eleven, sections one through four."
+     },
+     {
+      "tier": "maybe",
+      "title": "second quiz",
+      "intent": "tentative",
+      "date": "2026-10-26",
+      "date_expression": "around week eight",
+      "confidence": 0.85,
+      "reason": "intent tentative",
+      "quote": "We might do a second quiz around week eight, but I haven't decided yet."
+     }
+    ],
+    "elapsed_s": 92.3,
+    "calls": 3,
+    "input_tokens": 7419,
+    "output_tokens": 4289,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 38,
+     "surfaced": 13,
+     "suggestions": {
+      "one_tap": 0,
+      "maybe": 12,
+      "log": 26,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  }
+ ],
+ "aggregate": {
+  "name": "all",
+  "gold_one_tap": 25,
+  "one_tap_hits": 11,
+  "one_tap_in_maybe": 12,
+  "one_tap_missed": 2,
+  "one_tap_preds": 13,
+  "false_one_taps": 1,
+  "trap_one_taps": 1,
+  "date_exact": 9,
+  "date_checked": 11,
+  "maybe_expected": 15,
+  "maybe_hits": 14,
+  "details": [],
+  "precision": 0.846,
+  "recall": 0.44,
+  "date_exact_rate": 0.818
+ },
+ "total_elapsed_s": 461.5,
+ "total_cost_usd": 0.0
+}

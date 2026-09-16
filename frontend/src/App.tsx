@@ -48,6 +48,7 @@ type Suggestion = {
     course_hint: string
     course_name: string
     lecture_id: string
+    tier_reason?: string
   }
 }
 type FlagExplanationT = { flag_id: number; t: number; what_was_confusing?: string; explanation?: string; prerequisite?: string; sources?: string[]; error?: string }
@@ -590,6 +591,7 @@ function Inbox({ setError }: { setError: (e: string | null) => void }) {
           “{p.evidence_quote}”
         </blockquote>
         <div className="muted small">
+          {s.tier === 'maybe' && p.tier_reason ? <span className="warn-text">Needs you because: {p.tier_reason}. </span> : null}
           intent {p.intent} · model confidence {p.confidence} · audio confidence {p.asr_conf}
           {p.course_hint ? ` · mentioned for: ${p.course_hint}` : ''}
         </div>

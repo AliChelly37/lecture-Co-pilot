@@ -34,7 +34,7 @@ Grotesque, IBM Plex Sans, IBM Plex Mono.
 - [x] M3 Post-lecture deadline extraction (chunked for the local model), date resolution in code, suggestion inbox with one-tap / check-me tiers, .ics export
 - [x] M4 Recap (map-reduce for the local model, per-flag explanations, source pointers, versions, ratings) and ask-the-lecture
 - [x] M5 Google Calendar and Notion targets behind one ActionTarget interface (confirm-before-write, idempotent, undo deletes)
-- [ ] M6 Eval harness on MIT OCW lectures, cost chart
+- [x] M6 Eval harness: labelled cases, the trust metric (fake deadlines reaching one tap: 0), precision 1.00 / surfaced recall 0.92 on the local 4B model, deterministic recap-citation check (public OCW cases: when you add them)
 - [x] M7 Dashboard, export (JSON/Markdown), delete, transcript retention, read-only MCP server
 
 ## Run it
@@ -131,6 +131,18 @@ Claude Desktop config (`claude_desktop_config.json`):
 
 Tools: `list_lectures`, `search_transcripts`, `get_recap`, `list_open_flags`,
 `upcoming_deadlines`. Nothing in it writes.
+
+## Evaluation
+
+The trust-critical path is measured, not asserted: labelled cases run through
+the real pipeline and a scorer reports how many non-events reached the one-tap
+tier (target zero), one-tap precision and recall, date exactness, and cost.
+On the local 4B model, after six measured rounds of deterministic guards:
+**0 fake deadlines at one tap, precision 1.00, one-tap recall 0.68, surfaced
+recall 0.92, dates exact 16/17, $0**. Recap citations are checked
+deterministically (demo recap: 10/10 valid and supported). See [docs/EVAL.md](docs/EVAL.md)
+and [eval/README.md](eval/README.md); results accumulate in
+`eval/results/summary.md`.
 
 ## Develop
 

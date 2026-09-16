@@ -53,3 +53,4 @@ ignore = ["E501", "RUF012", "SIM905"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["eval"]

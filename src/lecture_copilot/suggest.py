@@ -19,7 +19,8 @@ import json
 import re
 from datetime import date, datetime
 
-from lecture_copilot.extract import Candidate
+from lecture_copilot.dates import normalise_numbers
+from lecture_copilot.extract import _DATE_WORDS, Candidate, date_grounded
 from lecture_copilot.store import Store
 from lecture_copilot.targets import ActionTarget, TargetError
 
@@ -28,21 +29,92 @@ ONE_TAP_MIN_ASR_CONF = 0.5
 ONE_TAP_MIN_DATE_CONF = 0.6
 
 
-def tier_for(c: Candidate, lecture_date: date) -> str:
-    if c.status == "log" or c.intent in ("hypothetical", "joke", "past_reference"):
-        return "log"
+JOKE_MARKERS = ("joking", "just kidding", "kidding", "i'm joking", "im joking", "haha", "lol", "only joking")
+HYPOTHETICAL_MARKERS = ("if this were", "if it were", "if that were", "if these were", "imagine", "hypothetically", "suppose ", "were due")
+TENTATIVE_MARKERS = (
+    "might",
+    "maybe",
+    "haven't decided",
+    "havent decided",
+    "not sure",
+    "probably",
+    "possibly",
+    "we may ",
+    "perhaps",
+    "tentatively",
+)
+COMMITMENT_MARKERS = (
+    "is due",
+    "are due",
+    "due on",
+    "due by",
+    "due next",
+    "hand in",
+    "there will be a",
+    "will be a quiz",
+    "must be submitted",
+    "submit by",
+    "submitted by",
+)
+# "your Statistics midterm": another course named in the spoken words, whatever the model's hint says.
+_OTHER_COURSE_RE = re.compile(r"\byour ([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)?) (midterm|exam|quiz|assignment|deadline|test|final)\b")
+
+
+def tier_and_reason(c: Candidate, lecture_date: date) -> tuple[str, str]:
+    """The tier and a one-line reason (stored on the card, shown in the eval).
+    Lexical guards read the quote *and* the located transcript line: the model's
+    quote can omit the very words ("I'm joking") that change the meaning."""
     if c.status in ("duplicate", "superseded"):
-        return "log"
-    if c.course_hint.strip():
-        return "maybe"
-    if c.intent not in ("commitment", "correction"):
-        return "maybe"
+        return "log", f"{c.status} by another mention"
+    if c.status == "log" or c.intent in ("hypothetical", "joke", "past_reference"):
+        return "log", f"intent {c.intent}"
+    raw = f"{c.evidence_quote or ''} {c.extras.get('segment_text') or ''}"
+    text = raw.lower()
+    if any(m in text for m in JOKE_MARKERS):
+        return "log", "the line says it was a joke"
+    if any(m in text for m in HYPOTHETICAL_MARKERS):
+        return "maybe", "the line sounds hypothetical"
+    hint = c.course_hint.strip()
+    if hint and hint.lower() in text:
+        return "maybe", f"mentioned for another course: {hint}"
+    # A hint that isn't in the spoken words is the model guessing a course code; ignore it.
+    m = _OTHER_COURSE_RE.search(raw)
+    if m and m.group(1).lower() not in (c.extras.get("course_name") or "").lower():
+        return "maybe", f"mentioned for another course: {m.group(1)}"
+    intent = c.intent
+    hedged = any(mk in text for mk in TENTATIVE_MARKERS)
+    override = ""
+    if intent == "tentative" and not hedged and any(mk in text for mk in COMMITMENT_MARKERS):
+        intent, override = "commitment", " (the model said tentative; the line states it plainly)"
+    if intent not in ("commitment", "correction"):
+        return "maybe", f"intent {intent}"
+    if hedged:
+        return "maybe", "the wording sounds tentative"
+    expr_norm = normalise_numbers(c.date_expression or "")
+    if not _DATE_WORDS.search(expr_norm) and not _DATE_WORDS.search(normalise_numbers(text)):
+        return "log", "no date mentioned"
     r = c.resolution
-    if not r.resolved or r.date < lecture_date:
-        return "maybe"
-    if c.confidence < ONE_TAP_MIN_CONF or c.asr_conf < ONE_TAP_MIN_ASR_CONF or r.confidence < ONE_TAP_MIN_DATE_CONF:
-        return "maybe"
-    return "one_tap"
+    if not r.resolved:
+        return "maybe", r.note
+    if r.date < lecture_date:
+        return "maybe", "date is in the past"
+    if c.t0 is None:
+        return "maybe", "quote not found in the transcript"
+    if not date_grounded(c.date_expression, c.evidence_quote, c.extras.get("segment_text")):
+        return "maybe", "date words not in the quoted sentence"
+    if c.extras.get("source") == "trigger":
+        return "maybe", "found by the keyword filter; the model did not report it"
+    if c.confidence < ONE_TAP_MIN_CONF:
+        return "maybe", f"model confidence {c.confidence:.2f} < {ONE_TAP_MIN_CONF}"
+    if c.asr_conf < ONE_TAP_MIN_ASR_CONF:
+        return "maybe", f"audio confidence {c.asr_conf:.2f} < {ONE_TAP_MIN_ASR_CONF}"
+    if r.confidence < ONE_TAP_MIN_DATE_CONF:
+        return "maybe", f"date resolution confidence {r.confidence:.2f} < {ONE_TAP_MIN_DATE_CONF}"
+    return "one_tap", "commitment with a grounded, resolved future date" + override
+
+
+def tier_for(c: Candidate, lecture_date: date) -> str:
+    return tier_and_reason(c, lecture_date)[0]
 
 
 def _norm_title(title: str) -> str:
@@ -54,8 +126,9 @@ def idempotency_key(course_id: str, c: Candidate) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:24]
 
 
-def payload_for(c: Candidate, lecture: dict, course: dict, tier: str) -> dict:
+def payload_for(c: Candidate, lecture: dict, course: dict, tier: str, reason: str = "") -> dict:
     return {
+        "tier_reason": reason,
         "title": c.title,
         "type": c.type,
         "intent": c.intent,
@@ -89,7 +162,7 @@ class SuggestionService:
         counts = {"one_tap": 0, "maybe": 0, "log": 0, "existing": 0, "retired": 0}
         produced: set[str] = set()
         for c in candidates:
-            tier = tier_for(c, lecture_date)
+            tier, reason = tier_and_reason(c, lecture_date)
             if tier == "log":
                 counts["log"] += 1
                 continue
@@ -100,7 +173,7 @@ class SuggestionService:
                 counts["existing"] += 1
                 if existing["state"] in ("proposed", "superseded"):
                     # Not acted on (or retired by an earlier re-run): refresh the card.
-                    self.store.update_suggestion_payload(existing["id"], payload_for(c, lecture, course, tier), tier=tier)
+                    self.store.update_suggestion_payload(existing["id"], payload_for(c, lecture, course, tier, reason), tier=tier)
                     if existing["state"] == "superseded":
                         self.store.set_suggestion_state(existing["id"], "proposed")
                 continue
@@ -108,7 +181,7 @@ class SuggestionService:
                 candidate_id=c.id or "",
                 lecture_id=lecture["id"],
                 tier=tier,
-                payload=payload_for(c, lecture, course, tier),
+                payload=payload_for(c, lecture, course, tier, reason),
                 idempotency_key=key,
             )
             counts[tier] += 1

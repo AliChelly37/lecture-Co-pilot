@@ -47,6 +47,12 @@ def test_resolves(r: DateResolver, expr: str, expected: date, min_conf: float) -
     assert res.confidence >= min_conf
 
 
+def test_explicit_weekday_beats_today_in_the_same_phrase(r: DateResolver) -> None:
+    # Found by the eval: "quiz on Thursday covering everything up to today" resolved to today.
+    assert r.resolve("Thursday covering everything up to today").date == date(2026, 9, 17)
+    assert r.resolve("today").date == date(2026, 9, 16)
+
+
 def test_weekday_said_on_same_weekday_means_next_week() -> None:
     thursday = datetime(2026, 9, 17, 9, 0, tzinfo=ZoneInfo(TZ))
     assert DateResolver(thursday, TZ).resolve("Thursday").date == date(2026, 9, 24)

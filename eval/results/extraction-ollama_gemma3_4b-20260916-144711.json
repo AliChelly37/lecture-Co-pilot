@@ -1,0 +1,260 @@
+{
+ "label": "ollama:gemma3:4b",
+ "at": "20260916-144711",
+ "cases": [
+  {
+   "case": "synthetic-11",
+   "score": {
+    "name": "synthetic-11",
+    "gold_one_tap": 5,
+    "one_tap_hits": 2,
+    "one_tap_in_maybe": 2,
+    "one_tap_missed": 1,
+    "one_tap_preds": 2,
+    "false_one_taps": 0,
+    "trap_one_taps": 0,
+    "date_exact": 1,
+    "date_checked": 2,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "date mismatch for 'project proposal': got 2026-10-08 expected 2026-11-14",
+     "'reading week 6' only reached the maybe tray",
+     "missed: 'project proposal' (commitment)",
+     "'midterm exam' only reached the maybe tray"
+    ],
+    "precision": 1.0,
+    "recall": 0.4,
+    "date_exact_rate": 0.5
+   },
+   "meta": {
+    "elapsed_s": 129.4,
+    "calls": 3,
+    "input_tokens": 7351,
+    "output_tokens": 4006,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 35,
+     "surfaced": 13,
+     "suggestions": {
+      "one_tap": 2,
+      "maybe": 11,
+      "log": 22,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  },
+  {
+   "case": "synthetic-23",
+   "score": {
+    "name": "synthetic-23",
+    "gold_one_tap": 5,
+    "one_tap_hits": 4,
+    "one_tap_in_maybe": 0,
+    "one_tap_missed": 1,
+    "one_tap_preds": 12,
+    "false_one_taps": 7,
+    "trap_one_taps": 1,
+    "date_exact": 4,
+    "date_checked": 4,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "missed: 'reading week 6' (commitment)",
+     "TRAP reached one-tap: 'joke exam' (joke) as 'final exam' 2026-12-01",
+     "unmatched one-tap: 'Peng-Robinson equation of state' 2026-09-24 \u2014 \"the one we will use in this course is the Peng-Robinson equation of state.\"",
+     "unmatched one-tap: 'second quiz' 2026-10-26 \u2014 \"[17:59] We might do a second quiz around week eight, but I haven't decided yet.\"",
+     "unmatched one-tap: 'residual Gibbs energy expression' 2026-09-24 \u2014 \"[18:36] Let me now go to the board and write the residual Gibbs energy expressio\"",
+     "unmatched one-tap: 'fugacity' 2026-09-24 \u2014 \"[18:45] Fugacity is the effective pressure that replaces the real pressure in th\"",
+     "unmatched one-tap: 'nitrogen at three hundred kelvin and fifty bar' 2026-09-24 \u2014 \"[18:12] Okay, let us work through an example with nitrogen at three hundred kelv\"",
+     "unmatched one-tap: 'residual Gibbs energy divided by R T equals the integral from zero to P of Z minus one over P, d P, at constant temperature' 2026-09-24 \u2014 \"[18:19] The residual Gibbs energy divided by R T equals the integral from zero t\"",
+     "unmatched one-tap: 'ideal gas' 2026-09-24 \u2014 \"[20:00] Notice that this integral vanishes for an ideal gas because Z is identic\""
+    ],
+    "precision": 0.333,
+    "recall": 0.8,
+    "date_exact_rate": 1.0
+   },
+   "meta": {
+    "elapsed_s": 101.9,
+    "calls": 3,
+    "input_tokens": 7329,
+    "output_tokens": 3763,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 33,
+     "surfaced": 15,
+     "suggestions": {
+      "one_tap": 12,
+      "maybe": 3,
+      "log": 18,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  },
+  {
+   "case": "synthetic-37",
+   "score": {
+    "name": "synthetic-37",
+    "gold_one_tap": 5,
+    "one_tap_hits": 2,
+    "one_tap_in_maybe": 3,
+    "one_tap_missed": 0,
+    "one_tap_preds": 2,
+    "false_one_taps": 0,
+    "trap_one_taps": 0,
+    "date_exact": 1,
+    "date_checked": 2,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "'Problem set 6' only reached the maybe tray",
+     "date mismatch for 'quiz': got 2026-10-02 expected 2026-10-08",
+     "'Problem set 9' only reached the maybe tray",
+     "'midterm exam' only reached the maybe tray"
+    ],
+    "precision": 1.0,
+    "recall": 0.4,
+    "date_exact_rate": 0.5
+   },
+   "meta": {
+    "elapsed_s": 101.1,
+    "calls": 3,
+    "input_tokens": 7350,
+    "output_tokens": 4247,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 41,
+     "surfaced": 25,
+     "suggestions": {
+      "one_tap": 2,
+      "maybe": 23,
+      "log": 16,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  },
+  {
+   "case": "synthetic-41",
+   "score": {
+    "name": "synthetic-41",
+    "gold_one_tap": 5,
+    "one_tap_hits": 3,
+    "one_tap_in_maybe": 2,
+    "one_tap_missed": 0,
+    "one_tap_preds": 3,
+    "false_one_taps": 0,
+    "trap_one_taps": 0,
+    "date_exact": 2,
+    "date_checked": 3,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "date mismatch for 'quiz': got 2026-09-16 expected 2026-09-22",
+     "'quiz' only reached the maybe tray",
+     "'midterm exam' only reached the maybe tray"
+    ],
+    "precision": 1.0,
+    "recall": 0.6,
+    "date_exact_rate": 0.667
+   },
+   "meta": {
+    "elapsed_s": 93.6,
+    "calls": 3,
+    "input_tokens": 7312,
+    "output_tokens": 4334,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 37,
+     "surfaced": 17,
+     "suggestions": {
+      "one_tap": 3,
+      "maybe": 14,
+      "log": 20,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  },
+  {
+   "case": "synthetic-59",
+   "score": {
+    "name": "synthetic-59",
+    "gold_one_tap": 5,
+    "one_tap_hits": 1,
+    "one_tap_in_maybe": 4,
+    "one_tap_missed": 0,
+    "one_tap_preds": 1,
+    "false_one_taps": 0,
+    "trap_one_taps": 0,
+    "date_exact": 1,
+    "date_checked": 1,
+    "maybe_expected": 3,
+    "maybe_hits": 3,
+    "details": [
+     "'Problem set 3' only reached the maybe tray",
+     "'lab report' only reached the maybe tray",
+     "'Problem set 5' only reached the maybe tray",
+     "'reading week 6' only reached the maybe tray"
+    ],
+    "precision": 1.0,
+    "recall": 0.2,
+    "date_exact_rate": 1.0
+   },
+   "meta": {
+    "elapsed_s": 92.1,
+    "calls": 3,
+    "input_tokens": 7419,
+    "output_tokens": 4289,
+    "cost_usd": 0.0,
+    "summary": {
+     "chunks": 3,
+     "calls": 3,
+     "candidates": 38,
+     "surfaced": 13,
+     "suggestions": {
+      "one_tap": 1,
+      "maybe": 12,
+      "log": 25,
+      "existing": 0,
+      "retired": 0
+     }
+    }
+   }
+  }
+ ],
+ "aggregate": {
+  "name": "all",
+  "gold_one_tap": 25,
+  "one_tap_hits": 12,
+  "one_tap_in_maybe": 11,
+  "one_tap_missed": 2,
+  "one_tap_preds": 20,
+  "false_one_taps": 7,
+  "trap_one_taps": 1,
+  "date_exact": 9,
+  "date_checked": 12,
+  "maybe_expected": 15,
+  "maybe_hits": 15,
+  "details": [],
+  "precision": 0.6,
+  "recall": 0.48,
+  "date_exact_rate": 0.75
+ },
+ "total_elapsed_s": 518.1,
+ "total_cost_usd": 0.0
+}

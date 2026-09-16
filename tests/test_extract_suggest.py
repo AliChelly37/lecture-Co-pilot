@@ -27,7 +27,7 @@ def cand(
     hint: str = "",
 ) -> Candidate:
     r = DateResolver(LECTURE_DT, TZ, {"week1_start": "2026-09-07"}).resolve(expr)
-    return Candidate(typ, title, expr, "", intent, f"quote about {title}", conf, hint, 10.0, asr, r)
+    return Candidate(typ, title, expr, "", intent, f"{title} is due {expr}", conf, hint, 10.0, asr, r)
 
 
 def test_chunking_windows_overlap() -> None:
@@ -73,15 +73,87 @@ def test_later_mention_wins_even_without_a_correction_label() -> None:
     assert first.status == "superseded" and later.status == "surfaced"
 
 
+def test_grounding_and_lexical_guards() -> None:
+    from lecture_copilot.extract import date_grounded
+    from lecture_copilot.suggest import tier_and_reason
+
+    today = LECTURE_DT.date()
+    # The date words must be in the quote or the located line (the model sprayed dates onto filler).
+    assert date_grounded("next Thursday", "Problem set 4 is due next Thursday at 5 p.m.", None)
+    assert date_grounded("October twenty first", "", "the midterm has moved to October 21st")
+    assert not date_grounded("next Thursday", "Fugacity is the effective pressure of a real gas.", "Fugacity is the effective pressure.")
+    ungrounded = cand("Fugacity")
+    ungrounded.evidence_quote = "Fugacity is the effective pressure of a real gas."
+    ungrounded.extras["segment_text"] = ungrounded.evidence_quote
+    assert tier_and_reason(ungrounded, today) == ("maybe", "date words not in the quoted sentence")
+    grounded = cand("Problem set 4")
+    grounded.evidence_quote = "Problem set 4 is due next Thursday at 5 p.m."
+    assert tier_and_reason(grounded, today)[0] == "one_tap"
+    joke = cand("Final exam", typ="exam", expr="December")
+    joke.evidence_quote = "The final exam is tonight at midnight."  # the model's quote omits the punchline...
+    joke.extras["segment_text"] = "The final exam is tonight at midnight. I'm joking, of course, it's in December like always."
+    assert tier_and_reason(joke, today) == ("log", "the line says it was a joke")  # ...but the transcript line has it
+    hypo = cand("Problem set 4", expr="tomorrow")
+    hypo.evidence_quote = "Now, if this problem set were due tomorrow, you would all be panicking."
+    assert tier_and_reason(hypo, today)[0] == "maybe"
+    tentative = cand("second quiz", typ="quiz", expr="week 8")
+    tentative.evidence_quote = "We might do a second quiz around week eight, but I haven't decided yet."
+    assert tier_and_reason(tentative, today) == ("maybe", "the wording sounds tentative")
+    # An invented course code that nobody said is ignored; a spoken one is honoured.
+    invented = cand("Midterm exam", typ="exam", expr="October 21", hint="CHEM 300")
+    invented.evidence_quote = "The midterm exam is on October 21."
+    assert tier_and_reason(invented, today)[0] == "one_tap"
+    spoken = cand("Statistics midterm", typ="exam", expr="October 15", hint="Statistics")
+    spoken.evidence_quote = "By the way, I hear your Statistics midterm is on October 15th."
+    assert tier_and_reason(spoken, today) == ("maybe", "mentioned for another course: Statistics")
+    # A "commitment" with no date anywhere is noise, not a card.
+    noise = cand("fugacity", expr="None")
+    noise.evidence_quote = "Fugacity is the effective pressure of a real gas."
+    noise.extras["segment_text"] = noise.evidence_quote
+    assert tier_and_reason(noise, today) == ("log", "no date mentioned")
+
+
+def test_plain_statement_override_and_spoken_other_course() -> None:
+    from lecture_copilot.suggest import tier_and_reason
+
+    today = LECTURE_DT.date()
+    mislabelled = cand("Problem set 6", intent="tentative", expr="next Monday")
+    mislabelled.evidence_quote = "Problem set 6 is due next Monday at 9 a.m., submitted through the course website."
+    tier, reason = tier_and_reason(mislabelled, today)
+    assert tier == "one_tap" and "the model said tentative" in reason
+    hedged = cand("second quiz", intent="tentative", typ="quiz", expr="week 8")
+    hedged.evidence_quote = "We might do a second quiz around week eight."
+    assert tier_and_reason(hedged, today)[0] == "maybe"
+    other = cand("Organic Chemistry midterm", typ="exam", expr="November 8th", hint="")  # the model dropped the hint
+    other.evidence_quote = "By the way, I hear your Organic Chemistry midterm is on November 8th, so plan your week."
+    other.extras["course_name"] = "Thermodynamics II"
+    assert tier_and_reason(other, today) == ("maybe", "mentioned for another course: Organic Chemistry")
+    junk = cand("example", expr="three hundred kelvin and fifty bar")
+    junk.evidence_quote = "Okay, let us work through an example with nitrogen at three hundred kelvin and fifty bar."
+    junk.extras["segment_text"] = junk.evidence_quote
+    assert tier_and_reason(junk, today) == ("log", "no date mentioned")
+
+
+def test_find_date_phrases_for_rescue() -> None:
+    from lecture_copilot.dates import find_date_phrases
+
+    assert find_date_phrases("The reading for week 6 is chapter 11; make sure it is done before that week's lecture.") == ["week 6"]
+    assert find_date_phrases("Problem set 4 is due next Thursday at 5 p.m.")[0] == "next thursday"
+    assert find_date_phrases("Project proposals are due on November 14th; one page.") == ["november 14"]
+    assert find_date_phrases("Fugacity is the effective pressure of a real gas.") == []
+
+
 def test_tier_policy() -> None:
     today = LECTURE_DT.date()
     assert tier_for(cand("Problem set 4"), today) == "one_tap"
     assert tier_for(cand("Midterm", intent="correction", typ="exam", expr="October 21"), today) == "one_tap"
-    assert tier_for(cand("Problem set 4", intent="tentative"), today) == "maybe"
+    hedged = cand("Problem set 4", intent="tentative")
+    hedged.evidence_quote = "Problem set 4 might be due next Thursday, we'll see."
+    assert tier_for(hedged, today) == "maybe"
     assert tier_for(cand("Problem set 4", conf=0.5), today) == "maybe"  # low model confidence
     assert tier_for(cand("Problem set 4", asr=0.3), today) == "maybe"  # unclear audio
     assert tier_for(cand("Reading", typ="reading", expr="next time"), today) == "maybe"  # unresolved without schedule
-    assert tier_for(cand("Stats midterm", typ="exam", expr="October 21", hint="Statistics"), today) == "maybe"
+    assert tier_for(cand("Statistics midterm", typ="exam", expr="October 21", hint="Statistics"), today) == "maybe"  # hint is in the quote
     assert tier_for(cand("Old thing", expr="September 1, 2026"), today) == "maybe"  # explicitly past
     # A bare "September 1" said mid-September means next year under future preference.
     assert tier_for(cand("Next year thing", expr="September 1"), today) == "one_tap"
@@ -142,9 +214,9 @@ def test_clean_hint_and_rerun_refreshes_proposed(tmp_path: Path) -> None:
     lecture = store.start_lecture(course["id"], "g", "cuda", "ac", None)
     store.end_lecture(lecture["id"], 0.1, None)
     svc = SuggestionService(store)
-    demoted = cand("Problem set 4", hint="None")  # what a small model produced
+    demoted = cand("Problem set 4", conf=0.5)  # first run: the model was unsure
     assert svc.propose([demoted], lecture, course) == {"one_tap": 0, "maybe": 1, "log": 0, "existing": 0, "retired": 0}
-    fixed = cand("Problem set 4", hint="")
+    fixed = cand("Problem set 4", conf=0.95)  # a re-run is confident: same key, refreshed tier
     assert svc.propose([fixed], lecture, course)["existing"] == 1
     assert store.suggestions(state="proposed")[0]["tier"] == "one_tap"  # refreshed in place, same row
     assert len(store.suggestions()) == 1

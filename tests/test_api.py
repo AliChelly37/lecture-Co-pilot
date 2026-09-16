@@ -88,6 +88,26 @@ def test_extract_and_inbox_with_fake_model(client: TestClient, monkeypatch: pyte
         lec["id"], 68.5, 75.0, "Actually, let me correct that, the midterm has moved to October 21st.", 0.7, "g", 0.9, ["moved to"]
     )
     state.store.add_segment(lec["id"], 80.0, 85.0, "If this were due tomorrow you would all be panicking.", 0.8, "g", 0.5, [])
+    state.store.add_segment(
+        lec["id"],
+        90.0,
+        96.0,
+        "The reading for week 6 is chapter 11; make sure it is done before that week's lecture.",
+        0.8,
+        "g",
+        0.6,
+        ["week 6"],
+    )
+    state.store.add_segment(
+        lec["id"],
+        100.0,
+        105.0,
+        "Please hand in the lab report by October 20th, no extensions this time.",
+        0.8,
+        "g",
+        0.9,
+        ["hand in", "lab report", "october 20"],
+    )
     state.store.end_lecture(lec["id"], 0.1, None)
 
     canned = ChunkExtraction(
@@ -142,6 +162,28 @@ def test_extract_and_inbox_with_fake_model(client: TestClient, monkeypatch: pyte
                 confidence=0.9,
                 course_hint="",
             ),
+            # A junk card on the lab-report line (logged as a joke) must not block the keyword fallback for that line.
+            EventOut(
+                type="other",
+                title="junk on the lab report line",
+                date_expression="",
+                time_expression="",
+                intent="joke",
+                evidence_quote="Please hand in the lab report by October 20th, no extensions this time.",
+                confidence=0.5,
+                course_hint="",
+            ),
+            # The model put the wrong words in the date field; the line says "week 6" -> rescued.
+            EventOut(
+                type="reading",
+                title="Reading week 6",
+                date_expression="chapter 11",
+                time_expression="",
+                intent="commitment",
+                evidence_quote="The reading for week 6 is chapter 11",
+                confidence=0.9,
+                course_hint="CHEM 300",
+            ),
         ]
     )
     monkeypatch.setattr(settings, "llm_provider", "ollama")
@@ -150,8 +192,8 @@ def test_extract_and_inbox_with_fake_model(client: TestClient, monkeypatch: pyte
     r = client.post(f"/api/lectures/{lec['id']}/extract")
     assert r.status_code == 200, r.text
     summary = r.json()
-    assert summary["chunks"] == 1 and summary["candidates"] == 5
-    assert summary["suggestions"] == {"one_tap": 2, "maybe": 1, "log": 2, "existing": 0, "retired": 0}
+    assert summary["chunks"] == 1 and summary["candidates"] == 8
+    assert summary["suggestions"] == {"one_tap": 3, "maybe": 2, "log": 3, "existing": 0, "retired": 0}
 
     inbox = client.get("/api/suggestions").json()
     by_title = {s["payload"]["title"]: s for s in inbox}
@@ -159,9 +201,15 @@ def test_extract_and_inbox_with_fake_model(client: TestClient, monkeypatch: pyte
     assert by_title["Problem set 4"]["payload"]["time"] == "17:00" and by_title["Problem set 4"]["payload"]["t0"] == 47.2
     assert by_title["Midterm exam"]["payload"]["date"] == "2026-10-21"  # the correction, not the superseded date
     assert by_title["Chapter 11"]["tier"] == "maybe" and by_title["Chapter 11"]["payload"]["date"] is None
+    fallback = next(x for x in inbox if x["payload"]["evidence_quote"].startswith("Please hand in the lab report"))
+    assert fallback["tier"] == "maybe" and fallback["payload"]["date"] == "2026-10-20"
+    assert fallback["payload"]["tier_reason"].startswith("found by the keyword filter")
+    rescued = by_title["Reading week 6"]
+    assert rescued["tier"] == "one_tap" and rescued["payload"]["date"] == "2026-10-12"  # week 1 starts 7 Sep
+    assert rescued["payload"]["resolution_note"].startswith("date taken from the transcript line")
 
     # Re-running is idempotent for suggestions.
-    assert client.post(f"/api/lectures/{lec['id']}/extract").json()["suggestions"]["existing"] == 3
+    assert client.post(f"/api/lectures/{lec['id']}/extract").json()["suggestions"]["existing"] == 5
 
     # Maybe tray: needs a date before it can be confirmed.
     sid = by_title["Chapter 11"]["id"]

@@ -121,9 +121,16 @@ def _tokens(s: str) -> set[str]:
 def locate(evidence: str, segments: list[dict]) -> tuple[float | None, float]:
     """Best-overlap segment for a quote: returns (t0, asr_conf). Whisper output
     rarely matches verbatim, so token overlap beats substring search."""
+    seg = locate_segment(evidence, segments)
+    if seg is None:
+        return None, 1.0
+    return float(seg["t0"]), float(seg.get("asr_conf") or 1.0)
+
+
+def locate_segment(evidence: str, segments: list[dict], min_score: float = 0.3) -> dict | None:
     ev = _tokens(evidence)
     if not ev or not segments:
-        return None, 1.0
+        return None
     best, best_score = None, 0.0
     for s in segments:
         st = _tokens(s["text"])
@@ -132,9 +139,33 @@ def locate(evidence: str, segments: list[dict]) -> tuple[float | None, float]:
         score = len(ev & st) / len(ev)
         if score > best_score:
             best, best_score = s, score
-    if best is None or best_score < 0.3:
-        return None, 1.0
-    return float(best["t0"]), float(best.get("asr_conf") or 1.0)
+    return best if best is not None and best_score >= min_score else None
+
+
+_DATE_WORDS = re.compile(
+    r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|"
+    r"september|october|november|december|tomorrow|today|tonight|week \d{1,2}|next (week|time|lecture|class|session)|"
+    r"in \d{1,2} (days?|weeks?)|end of (the )?(week|month|term|semester)|\d{1,2}(:\d{2})? ?(am|pm)|noon|midnight)\b"
+)
+
+
+def date_grounded(date_expression: str, evidence: str, segment_text: str | None) -> bool:
+    """A date is grounded when the words it came from are in the evidence quote
+    or the located transcript line. Small models spray one real date over the
+    neighbouring sentences of a chunk (measured in the eval); ungrounded dates
+    must not reach the one-tap tier."""
+    expr = normalise_numbers(date_expression or "")
+    if not expr.strip():
+        return False
+    haystack = normalise_numbers(f"{evidence or ''} {segment_text or ''}")
+    words = set(_DATE_WORDS.findall(haystack) and [m[0] if isinstance(m, tuple) else m for m in _DATE_WORDS.findall(haystack)])
+    if not _DATE_WORDS.search(haystack):
+        return False
+    key = {m[0] if isinstance(m, tuple) else m for m in _DATE_WORDS.findall(expr)}
+    if not key:
+        # a bare number date like "14 october" is covered by the month check above
+        return True
+    return bool(key & words) or any(k in haystack for k in key)
 
 
 # -- merging across windows ----------------------------------------------------
@@ -169,6 +200,8 @@ class Candidate:
 def _similar(a: Candidate, b: Candidate) -> bool:
     if a.type != b.type:
         return False
+    if a.extras.get("other_course") or b.extras.get("other_course"):
+        return False  # another course's midterm is not a later mention of ours
     ta, tb = a.title_tokens(), b.title_tokens()
     jaccard = len(ta & tb) / max(len(ta | tb), 1)
     same_date = a.resolution.date is not None and a.resolution.date == b.resolution.date

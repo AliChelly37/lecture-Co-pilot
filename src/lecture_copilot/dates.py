@@ -84,6 +84,36 @@ def normalise_numbers(text: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
+_PHRASE_PATTERNS = [
+    re.compile(r"\b(?:next|this|on|by|before|until|coming)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I),
+    re.compile(r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", re.I),
+    re.compile(
+        r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)?\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:january|february|march|april|may|june|july|august|september|october|november|december)\b",
+        re.I,
+    ),
+    re.compile(r"\b(?:end of |start of )?week\s+\d{1,2}\b", re.I),
+    re.compile(r"\b(?:tomorrow|next week|in \d{1,2} (?:days?|weeks?)|end of (?:the )?(?:week|month|term|semester))\b", re.I),
+]
+
+
+def find_date_phrases(text: str) -> list[str]:
+    """Date phrases present in a transcript line, most specific first. Used to
+    rescue a date when the model filled `date_expression` with the wrong words
+    (measured: "chapter 11" for a line that says "week 6")."""
+    norm = normalise_numbers(text or "")
+    found: list[str] = []
+    for pat in _PHRASE_PATTERNS:
+        for m in pat.finditer(norm):
+            phrase = m.group(0).strip()
+            if phrase.lower() not in (f.lower() for f in found) and not any(phrase.lower() in f.lower() for f in found):
+                found.append(phrase)
+    return found
+
+
 @dataclass
 class Resolution:
     date: date | None
@@ -137,10 +167,15 @@ class DateResolver:
                 )
             return Resolution(monday, t, f"'{raw}' = Monday of week {n} (week 1 starts {self.week1_start:%d %b})", 0.6)
 
-        if re.search(r"\b(tomorrow)\b", text):
+        # "today"/"tomorrow" only when nothing more specific is named: "quiz on
+        # Thursday covering everything up to today" is about Thursday (found by the eval).
+        explicit = re.search(r"\b(" + "|".join(_WEEKDAYS) + r")\b", text) or re.search(
+            r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\b", text
+        )
+        if not explicit and re.search(r"\b(tomorrow)\b", text):
             d = (self.base + timedelta(days=1)).date()
             return Resolution(d, t, f"'{raw}' from lecture date {base_label} -> {d:%a %d %b %Y}", 0.9)
-        if re.search(r"\b(today|tonight)\b", text):
+        if not explicit and re.search(r"\b(today|tonight)\b", text):
             return Resolution(self.base.date(), t, f"'{raw}' = lecture date {base_label}", 0.9)
 
         m = re.search(r"\bin (\d{1,2}) (day|days|week|weeks)\b", text)
