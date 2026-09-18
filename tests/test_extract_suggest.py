@@ -160,6 +160,7 @@ def test_tier_policy() -> None:
     assert tier_for(cand("Joke", intent="joke", typ="other", expr=""), today) == "log"
 
 
+@pytest.mark.usefixtures("frozen_now")
 def test_suggestion_lifecycle_and_ics(tmp_path: Path) -> None:
     store = Store(tmp_path / "t.sqlite3")
     course = store.create_course("Thermo", TZ, {"week1_start": "2026-09-07"})
@@ -201,6 +202,7 @@ def test_suggestion_lifecycle_and_ics(tmp_path: Path) -> None:
     store.close()
 
 
+@pytest.mark.usefixtures("frozen_now")
 def test_clean_hint_and_rerun_refreshes_proposed(tmp_path: Path) -> None:
     from lecture_copilot.extract import clean_hint
 

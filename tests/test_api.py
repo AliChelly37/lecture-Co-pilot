@@ -69,6 +69,7 @@ def test_deck_upload_attach_and_align(client: TestClient) -> None:
     assert r.status_code == 503
 
 
+@pytest.mark.usefixtures("frozen_now")
 def test_extract_and_inbox_with_fake_model(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The whole M3 path with the model replaced by canned output: chunking,
     evidence location, date resolution, merge, tiers, confirm and .ics."""

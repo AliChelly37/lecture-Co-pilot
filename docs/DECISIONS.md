@@ -645,6 +645,73 @@ reach one tap. Every rule below is a measured failure, not a hypothesis:
 
 ---
 
+## D27 - YouTube import: a public lecture, its transcript and its slides
+- **Date:** 2026-09-18 (follow-up to D26)
+- **Status:** decided
+- **Context:** the user tested replay with a public lecture whose slides were
+  never shared, and asked for a link to become a lecture with a transcript
+  *and* slides that follow the audio, all on local models.
+- **Key insight:** the existing `SlideAligner` guesses which slide a sentence
+  belongs to by lexical overlap, because a PDF has no timeline. A video does:
+  each slide change is seen at a known second, on the same clock as the
+  transcript. Alignment stops being a heuristic; each slide's window is its
+  exact on-screen interval (score 1.0).
+- **Pipeline:** `yt-dlp` (free, local, no key) fetches audio and a
+  capped-resolution (480p) video-only stream as **two separate downloads**, so
+  nothing depends on an ffmpeg binary for merging; PyAV (already installed for
+  Whisper) decodes both. Audio goes down the D26 path unchanged (`FileFeeder`,
+  `PlaybackClock`). Video is sampled at 1 fps and `detect_cuts` (pure numpy: a
+  64x36 grayscale difference against the previous sampled frame, a threshold,
+  and a debounce) yields one frame per distinct slide. Each frame is read once
+  by the local vision model (`BoardReading`, reused from board photos, whose
+  `slide_projection` kind exists for this), and only its text is stored. A frame
+  that is not a slide (a speaker, a blank) is dropped; the same slide seen again
+  after a camera cut is merged, so the alignment stays gapless.
+- **Options considered:**
+  1. Wait for the slides before returning. Simple, but the student stares at a
+     spinner for a minute or more.
+  2. **Return once transcription is under way; read the slides on a background
+     thread** (chosen): the audio is playing within ~10 s, slides appear when
+     ready (`slides_ready` event, `status.slides = reading | ready | none`), and
+     a `stop()` cancels the reader and waits for it.
+  3. Keep the frames to show them. Rejected: the app stores derived text only
+     (D8/D19), even for PDF decks, whose files are dropped after text
+     extraction. Someone else's slide images are no exception.
+- **Decisions inside it:**
+  - The download lands in a temp directory that is deleted as soon as the
+    slides have been read (the deck-upload rule from D8). This is the one
+    action that reaches the internet, and only when asked; the README says so.
+  - The browser gets the downloaded audio back once, as a Blob, and plays it
+    through the same hook as an uploaded recording. After a page reload the
+    backend still holds it, so the audio comes back on its own (an uploaded
+    file has to be picked again).
+  - A video with no readable slides (a talking head), no model configured, or
+    no video stream still yields a transcript; only the deck is missing.
+  - Bounds: 180 minutes per video, 150 vision-model calls per import (a longer
+    run keeps the first ones; the summary records how many were skipped), 1 fps.
+  - `yt-dlp` needs a JavaScript runtime to solve YouTube's challenges; Node is
+    used if Deno is absent. Downloads retry and fall back to a smaller stream,
+    because YouTube answers 403 for a stream URL intermittently.
+- **Known limitations:** a fade slower than the threshold per second is not
+  seen as a slide change; a webcam picture-in-picture is tolerated by the
+  debounce, not eliminated; animated builds on one slide can read as several
+  slides, merged only when the text is identical. Downloading a video from
+  YouTube is against its Terms of Service even for personal study; the README
+  says so, and asks the student to use it only on videos they are entitled to.
+- **Measured (2026-09-18, gemma3:4b + large-v3-turbo on the RTX 4050):** a
+  4.5-minute lecture: audio playing after 9 s, six frames read in ~21 s, four
+  distinct slides recovered with their text, transcript 50 lines. A static
+  single-slide video produced one slide, correctly (largest frame difference
+  0.0003 against the 0.045 threshold).
+- **Tests:** cut detection on synthetic frames, frame decoding on a video the
+  test encodes, slide reading with a fake model (merge, cap, failure of one
+  frame, nothing usable, no cuts), and the session/API path with the download
+  patched, including the background reader, its cancellation on stop and the
+  cleanup of the temp directory. The download itself is exercised only against
+  the real service.
+
+---
+
 ## Open items
 - Cloudflare token permissions (user action) before the cloud provider can be tested.
 - ~~Local context budget~~ resolved: 16K on gemma3:4b; lecture chunking is part of M3/M4.

@@ -11,27 +11,61 @@ type Asr = {
   rtf_recent: number | null
   fatal?: string
 }
-type ReplayStatus = { filename: string; duration_s: number; transcribed_s: number; done: boolean; heard_s: number }
+type ReplayStatus = {
+  filename: string
+  duration_s: number
+  transcribed_s: number
+  done: boolean
+  heard_s: number
+}
 type Status = {
   recording: boolean
-  source: 'mic' | 'replay' | null
+  source: 'mic' | 'replay' | 'youtube' | null
   paused: boolean
   lecture: { id: string } | null
   elapsed_s: number
   badge: number
   asr: Asr | null
   replay: ReplayStatus | null
+  slides: 'reading' | 'ready' | 'none' | null
   hotkeys: boolean
   power: { state: 'ac' | 'battery'; battery: number | null }
   llm_available: boolean
   llm?: { provider: string; text_model: string; local: boolean }
 }
 type Course = { id: string; name: string; timezone: string }
-type Segment = { id: number; t0: number; t1: number; text: string; conf: number; trigger: string[] }
+type Segment = {
+  id: number
+  t0: number
+  t1: number
+  text: string
+  conf: number
+  trigger: string[]
+}
 type Flag = { id: number; t: number; window_t0: number; window_t1: number }
-type LectureRow = { id: string; course_name: string; started_at: string; ended_at: string | null; status: string; asr_model: string; source: 'mic' | 'replay' }
-type Deck = { id: string; filename: string; slide_count: number; indexed: boolean }
-type Capture = { id: string; t_shutter: number | null; content_kind: string | null; text: string | null; legibility: number | null; status: string }
+type LectureRow = {
+  id: string
+  course_name: string
+  started_at: string
+  ended_at: string | null
+  status: string
+  asr_model: string
+  source: 'mic' | 'replay' | 'youtube'
+}
+type Deck = {
+  id: string
+  filename: string
+  slide_count: number
+  indexed: boolean
+}
+type Capture = {
+  id: string
+  t_shutter: number | null
+  content_kind: string | null
+  text: string | null
+  legibility: number | null
+  status: string
+}
 type Suggestion = {
   id: string
   tier: 'one_tap' | 'maybe'
@@ -54,7 +88,15 @@ type Suggestion = {
     tier_reason?: string
   }
 }
-type FlagExplanationT = { flag_id: number; t: number; what_was_confusing?: string; explanation?: string; prerequisite?: string; sources?: string[]; error?: string }
+type FlagExplanationT = {
+  flag_id: number
+  t: number
+  what_was_confusing?: string
+  explanation?: string
+  prerequisite?: string
+  sources?: string[]
+  error?: string
+}
 type RecapT = {
   id: string
   version: number
@@ -64,7 +106,12 @@ type RecapT = {
   sections: {
     title: string
     highlights: string[]
-    concepts: { name: string; importance: 'high' | 'medium' | 'low'; explanation: string; sources: string[] }[]
+    concepts: {
+      name: string
+      importance: 'high' | 'medium' | 'low'
+      explanation: string
+      sources: string[]
+    }[]
     review_questions: { question: string; answer: string; sources: string[] }[]
     off_slide_notes: string[]
     gaps_note: string
@@ -72,19 +119,56 @@ type RecapT = {
     detected_events: string[]
   }
 }
-type AnswerT = { answer: string; sources: string[]; coverage: 'answered_from_lecture' | 'partly_from_lecture' | 'not_in_lecture' }
-type ExtractSummary = { chunks: number; candidates: number; surfaced: number; suggestions: { one_tap: number; maybe: number; log: number; existing: number }; note?: string }
+type AnswerT = {
+  answer: string
+  sources: string[]
+  coverage: 'answered_from_lecture' | 'partly_from_lecture' | 'not_in_lecture'
+}
+type ExtractSummary = {
+  chunks: number
+  candidates: number
+  surfaced: number
+  suggestions: {
+    one_tap: number
+    maybe: number
+    log: number
+    existing: number
+  }
+  note?: string
+}
 type Detail = {
-  lecture: LectureRow & { deck_id: string | null; power_state: string; battery_start: number | null; battery_end: number | null; asr_rtf_p95: number | null }
-  segments: { id: number; t0: number; t1: number; text: string; asr_conf: number | null; trigger_terms: string[]; trigger_score: number }[]
+  lecture: LectureRow & {
+    deck_id: string | null
+    power_state: string
+    battery_start: number | null
+    battery_end: number | null
+    asr_rtf_p95: number | null
+    source_url: string | null
+  }
+  segments: {
+    id: number
+    t0: number
+    t1: number
+    text: string
+    asr_conf: number | null
+    trigger_terms: string[]
+    trigger_score: number
+  }[]
   flags: Flag[]
   gaps: { t0: number; t1: number | null; cause: string }[]
-  deck: Deck | null
+  deck: (Deck & { slides_text: string[] }) | null
   captures: Capture[]
   alignment: { t0: number; t1: number; slide: number | null; score: number }[]
   suggestions: Suggestion[]
   recap: RecapT | null
-  usage: { stage: string; model: string; calls: number; cost_usd: number; cache_read: number; input_tokens: number }[]
+  usage: {
+    stage: string
+    model: string
+    calls: number
+    cost_usd: number
+    cache_read: number
+    input_tokens: number
+  }[]
 }
 
 // "t=12:34" -> 754 seconds; anything else is shown as a chip.
@@ -121,7 +205,11 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail ?? res.statusText)
   return res.json()
 }
-const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+const json = (body: unknown): RequestInit => ({
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify(body),
+})
 
 // ---------- app shell ----------
 export default function App() {
@@ -145,7 +233,16 @@ export default function App() {
   const [status, setStatus] = useState<Status | null>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [live, setLive] = useState<LiveState>({ segments: [], flags: [], badge: 0 })
+  const [live, setLive] = useState<LiveState>({
+    segments: [],
+    flags: [],
+    badge: 0,
+  })
+  const [ytProgress, setYtProgress] = useState<{
+    stage: string
+    done: number
+    total: number
+  } | null>(null)
   const refresh = useCallback(async () => setStatus(await api<Status>('/api/status')), [])
   const replay = useReplay(status)
   // Connected in the middle of a lecture (a reload, a second tab): bring back what was already said and flagged.
@@ -186,11 +283,21 @@ export default function App() {
           setLive((l) => ({ ...l, badge: ev.badge }))
           if (ev.recording && ev.lecture) restore(ev.lecture.id)
         } else if (ev.type === 'segment') {
-          setLive((l) => ({ ...l, segments: [...l.segments, ev.segment], badge: ev.badge ?? l.badge }))
+          setLive((l) => ({
+            ...l,
+            segments: [...l.segments, ev.segment],
+            badge: ev.badge ?? l.badge,
+          }))
         } else if (ev.type === 'flag') {
           setLive((l) => ({ ...l, flags: [...l.flags, ev.flag] }))
         } else if (ev.type === 'lecture_started') {
           setLive({ segments: [], flags: [], badge: 0 })
+          setYtProgress(null)
+          refresh()
+        } else if (ev.type === 'progress' && ev.job === 'youtube') {
+          setYtProgress({ stage: ev.stage, done: ev.done, total: ev.total })
+        } else if (ev.type === 'slides_ready') {
+          setYtProgress(null)
           refresh()
         } else if (ev.type !== 'progress') {
           refresh()
@@ -240,7 +347,7 @@ export default function App() {
           {error}
         </div>
       )}
-      {view === 'live' && <Live status={status} live={live} refresh={refresh} setError={setError} replay={replay} />}
+      {view === 'live' && <Live status={status} live={live} refresh={refresh} setError={setError} replay={replay} ytProgress={ytProgress} />}
       {view === 'lectures' && <Lectures setError={setError} llmAvailable={!!status?.llm_available} initialId={lectureFromHash()} />}
       {view === 'inbox' && <Inbox setError={setError} />}
       {view === 'dashboard' && <Dashboard setError={setError} />}
@@ -303,7 +410,7 @@ function useReplay(status: Status | null): ReplayCtl {
   const [heard, setHeard] = useState(0) // furthest point reached: lines stay visible after a seek back
   const [playing, setPlaying] = useState(false)
   const [ended, setEnded] = useState(false)
-  const inReplay = !!status?.recording && status.source === 'replay'
+  const inReplay = !!status?.recording && (status.source === 'replay' || status.source === 'youtube')
   const backendPaused = status?.paused
   const backendClock = status?.elapsed_s
 
@@ -373,7 +480,12 @@ function useReplay(status: Status | null): ReplayCtl {
     // Closing or reloading the page stops the audio; stop the backend clock with it.
     const onHide = () => {
       if (a.paused) return
-      navigator.sendBeacon('/api/lectures/playback', new Blob([JSON.stringify({ playing: false, t: a.currentTime })], { type: 'application/json' }))
+      navigator.sendBeacon(
+        '/api/lectures/playback',
+        new Blob([JSON.stringify({ playing: false, t: a.currentTime })], {
+          type: 'application/json',
+        }),
+      )
     }
     const media: [string, () => void][] = [
       ['play', onPlay],
@@ -421,7 +533,18 @@ function useReplay(status: Status | null): ReplayCtl {
     if (a && Number.isFinite(t)) a.currentTime = Math.max(0, t)
   }, [])
 
-  return { file, open, close, audioRef, pos, heard, playing, ended, toggle, seek }
+  return {
+    file,
+    open,
+    close,
+    audioRef,
+    pos,
+    heard,
+    playing,
+    ended,
+    toggle,
+    seek,
+  }
 }
 
 function StatusPills({ status, connected }: { status: Status | null; connected: boolean }) {
@@ -462,19 +585,27 @@ function Live({
   refresh,
   setError,
   replay,
+  ytProgress,
 }: {
   status: Status | null
   live: LiveState
   refresh: () => Promise<void>
   setError: (e: string | null) => void
   replay: ReplayCtl
+  ytProgress: { stage: string; done: number; total: number } | null
 }) {
   const { segments, flags, badge } = live
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState('')
   const [newCourse, setNewCourse] = useState('')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [opening, setOpening] = useState<string | null>(null)
+  const [slides, setSlides] = useState<{
+    lectureId: string
+    texts: string[]
+    windows: { t0: number; t1: number; slide: number | null }[]
+  } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -499,22 +630,66 @@ function Live({
     }
   }
   const recording = !!status?.recording
-  const isReplay = recording && status?.source === 'replay'
+  const lectureId = status?.lecture?.id ?? null
+  const isYoutube = recording && status?.source === 'youtube'
+  const isPlayback = recording && (status?.source === 'replay' || status?.source === 'youtube')
   const rs = status?.replay ?? null
   const dur = rs?.duration_s ?? 0
-  // Replay: the transcript runs ahead of the audio, so a line (and its badge tick)
+  // Playback: the transcript runs ahead of the audio, so a line (and its badge tick)
   // appears once the recording has reached it, and stays after a seek back.
   const reach = Math.max(replay.heard, rs?.heard_s ?? 0) // the backend remembers it across a reload
-  const shown = isReplay ? segments.filter((s) => s.t0 <= reach + 0.3) : segments
+  const shown = isPlayback ? segments.filter((s) => s.t0 <= reach + 0.3) : segments
   const playedTo = shown.filter((s) => s.t0 <= replay.pos + 0.3)
-  const nowId = isReplay && replay.file ? playedTo[playedTo.length - 1]?.id : undefined
-  const shownBadge = isReplay ? shown.filter((s) => s.trigger.length > 0).length : badge
+  const nowId = isPlayback && replay.file ? playedTo[playedTo.length - 1]?.id : undefined
+  const shownBadge = isPlayback ? shown.filter((s) => s.trigger.length > 0).length : badge
   const pct = (t: number) => `${dur ? Math.min(100, (t / dur) * 100) : 0}%`
+
+  // A YouTube import already has its deck: fetch it once (no attach/align click needed) and
+  // work out which slide covers the played-to position, so the slide "follows the sound".
+  useEffect(() => {
+    if (!isYoutube || !lectureId || status?.slides !== 'ready' || slides?.lectureId === lectureId) return
+    api<Detail>(`/api/lectures/${lectureId}`)
+      .then((d) => {
+        if (d.deck)
+          setSlides({
+            lectureId,
+            texts: d.deck.slides_text,
+            windows: d.alignment,
+          })
+      })
+      .catch(() => undefined)
+  }, [isYoutube, lectureId, status?.slides, slides])
+  useEffect(() => {
+    if (!recording) setSlides(null)
+  }, [recording])
+  const atPos = replay.file ? replay.pos : (status?.elapsed_s ?? 0)
+  const currentSlide = slides?.windows.find((w) => atPos >= w.t0 && atPos < w.t1)?.slide ?? null
+  const currentSlideText = currentSlide ? slides?.texts[currentSlide - 1] : null
+
+  // A page reload drops the audio Blob; a replayed upload asks for the file back, but a
+  // YouTube import can just be re-fetched from the backend, which still has it in memory.
+  useEffect(() => {
+    if (!isYoutube || !lectureId || replay.file || busy) return
+    let cancelled = false
+    fetch(`/api/lectures/${lectureId}/audio`)
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error('audio no longer available'))))
+      .then((blob) => {
+        if (!cancelled)
+          replay.open(new File([blob], 'lecture-audio', { type: blob.type }), {
+            autoplay: false,
+            startAt: status?.elapsed_s ?? 0,
+          })
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [isYoutube, lectureId, replay, busy, status?.elapsed_s])
 
   useEffect(() => {
     const box = listRef.current
     if (!box) return
-    if (!isReplay) {
+    if (!isPlayback) {
       box.scrollTo({ top: box.scrollHeight })
       return
     }
@@ -523,16 +698,26 @@ function Live({
     if (!el) return
     const b = box.getBoundingClientRect()
     const r = el.getBoundingClientRect()
-    if (r.top < b.top || r.bottom > b.bottom) box.scrollTo({ top: box.scrollTop + (r.top - b.top) - box.clientHeight / 3 })
-  }, [shown.length, nowId, isReplay])
+    if (r.top < b.top || r.bottom > b.bottom)
+      box.scrollTo({
+        top: box.scrollTop + (r.top - b.top) - box.clientHeight / 3,
+      })
+  }, [shown.length, nowId, isPlayback])
 
   const openRecording = (f: File) =>
     run(async () => {
       setOpening(f.name)
       try {
         await playable(f) // a file this browser can't play is refused before anything starts
-        const q = new URLSearchParams({ course_id: courseId, filename: f.name })
-        await api(`/api/lectures/replay?${q}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: f })
+        const q = new URLSearchParams({
+          course_id: courseId,
+          filename: f.name,
+        })
+        await api(`/api/lectures/replay?${q}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/octet-stream' },
+          body: f,
+        })
         await refresh()
         replay.open(f, { autoplay: true })
       } finally {
@@ -547,14 +732,31 @@ function Live({
       }
       replay.open(f, { autoplay: false, startAt: status?.elapsed_s ?? 0 })
     })
+  const importYoutube = () =>
+    run(async () => {
+      const url = youtubeUrl.trim()
+      setOpening('the video')
+      try {
+        const r = await api<{ lecture: { id: string }; duration_s: number }>('/api/lectures/youtube', json({ course_id: courseId, url }))
+        setYoutubeUrl('')
+        await refresh()
+        const blob = await (await fetch(`/api/lectures/${r.lecture.id}/audio`)).blob()
+        replay.open(new File([blob], 'lecture-audio', { type: blob.type }), {
+          autoplay: true,
+        })
+      } finally {
+        setOpening(null)
+      }
+    })
   const finish = () =>
     run(async () => {
-      const ended = await api<{ id: string }>('/api/lectures/stop', { method: 'POST' })
+      const ended = await api<{ id: string }>('/api/lectures/stop', {
+        method: 'POST',
+      })
       replay.close()
       location.hash = `#lectures/${ended.id}`
     })
-  const flagNow = () =>
-    run(() => api('/api/lectures/flag', isReplay ? json({ t: replay.audioRef.current?.currentTime ?? replay.pos }) : { method: 'POST' }))
+  const flagNow = () => run(() => api('/api/lectures/flag', isPlayback ? json({ t: replay.audioRef.current?.currentTime ?? replay.pos }) : { method: 'POST' }))
   const liquid = (e: React.PointerEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     e.currentTarget.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`)
@@ -596,14 +798,20 @@ function Live({
               Start lecture
             </button>
             <label className={`upload ${!courseId || busy ? 'off' : ''}`} title="Missed the class? Play someone's recording here and use the same buttons.">
-              {opening ? `Opening ${opening}…` : 'Catch up on a recording'}
+              {opening === 'the video' ? 'Opening…' : opening ? `Opening ${opening}…` : 'Catch up on a recording'}
               <input type="file" accept={AUDIO_TYPES} hidden disabled={!courseId || busy} onChange={pick(openRecording)} />
             </label>
+            <div className="yt-import">
+              <input type="url" placeholder="Or paste a YouTube link…" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} disabled={!courseId || busy} />
+              <button onClick={importYoutube} disabled={!courseId || !youtubeUrl.trim() || busy}>
+                {opening === 'the video' ? (ytProgress ? `${ytProgress.stage} ${ytProgress.total ? `${ytProgress.done}/${ytProgress.total}` : '…'}` : 'Downloading…') : 'Import'}
+              </button>
+            </div>
           </>
-        ) : isReplay ? (
+        ) : isPlayback ? (
           <>
             <span className={`rec replay ${replay.playing ? '' : 'paused'}`}>
-              {replay.ended ? 'ENDED' : replay.playing ? 'PLAYING' : 'PAUSED'} · {fmt(replay.file ? replay.pos : (status?.elapsed_s ?? 0))} / {fmt(dur)}
+              {replay.ended ? 'ENDED' : replay.playing ? 'PLAYING' : 'PAUSED'} · {fmt(atPos)} / {fmt(dur)}
             </span>
             {replay.file ? (
               <>
@@ -614,6 +822,8 @@ function Live({
                   {replay.playing ? 'Pause (F10)' : replay.ended ? 'Play again' : 'Play (F10)'}
                 </button>
               </>
+            ) : isYoutube ? (
+              <span className="muted">Reconnecting the audio…</span>
             ) : (
               <label className={`upload ${busy ? 'off' : ''}`}>
                 Open {rs?.filename ?? 'the recording'} again to keep listening
@@ -626,7 +836,15 @@ function Live({
             <span className="badge" title="Possible deadline mentions (deterministic filter; confirmed after class)">
               {shownBadge} possible deadline{shownBadge === 1 ? '' : 's'}
             </span>
-            <div className="tape" style={{ '--pos': pct(replay.file ? replay.pos : (status?.elapsed_s ?? 0)), '--done': pct(rs?.transcribed_s ?? 0) } as CSSProperties}>
+            <div
+              className="tape"
+              style={
+                {
+                  '--pos': pct(atPos),
+                  '--done': pct(rs?.transcribed_s ?? 0),
+                } as CSSProperties
+              }
+            >
               <div className="ticks" aria-hidden>
                 {dur > 0 && flags.map((f) => <i key={f.id} style={{ left: pct(f.t) }} />)}
               </div>
@@ -645,9 +863,21 @@ function Live({
               <span className="tape-note">
                 {rs?.filename}
                 {rs ? (rs.done ? ' · fully transcribed' : ` · transcribed to ${fmt(rs.transcribed_s)}`) : ''}
-                {replay.ended ? ' · Finish to find deadlines and write the recap' : ' · the file stays in this browser; only the transcript is saved'}
+                {replay.ended
+                  ? ' · Finish to find deadlines and write the recap'
+                  : status?.slides === 'reading'
+                    ? ` · reading the slides${ytProgress?.total ? ` ${ytProgress.done}/${ytProgress.total}` : '…'}`
+                    : isYoutube
+                    ? ' · downloaded once, kept only in this browser; only the transcript is saved'
+                    : ' · the file stays in this browser; only the transcript is saved'}
               </span>
             </div>
+            {currentSlideText !== null && currentSlideText !== undefined && (
+              <div className="slide-now">
+                <b>Slide {currentSlide}</b>
+                <span>{currentSlideText}</span>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -673,9 +903,9 @@ function Live({
         <section className="transcript" ref={listRef}>
           {shown.length === 0 && (
             <div className="empty">
-              {isReplay ? (
+              {isPlayback ? (
                 <>
-                  <b>{!replay.file ? 'Open the recording to carry on' : replay.playing ? 'Listening' : 'Press play'}</b>
+                  <b>{!replay.file ? 'Opening…' : replay.playing ? 'Listening' : 'Press play'}</b>
                   <span>Each line appears when the recording reaches it. Flag and pause work the same way they do in class.</span>
                 </>
               ) : recording ? (
@@ -689,7 +919,7 @@ function Live({
                   <span>
                     Everything stays on this laptop. <kbd>F9</kbd> marks a moment you didn't get, <kbd>F10</kbd> pauses.
                   </span>
-                  <span>Missed the class? Open someone's recording and use the same buttons while you listen.</span>
+                  <span>Missed the class? Open a recording, or paste a public YouTube link, and use the same buttons while you listen.</span>
                 </>
               )}
             </div>
@@ -706,7 +936,7 @@ function Live({
           <h2>Flags</h2>
           {flags.length === 0 && <p className="muted">No confusion flags yet.</p>}
           {flags.map((f) =>
-            isReplay && replay.file ? (
+            isPlayback && replay.file ? (
               <p key={f.id}>
                 <button className="linkish" onClick={() => replay.seek(Math.max(0, f.t - 10))} title="Hear the 10 seconds before this flag again">
                   <span className="t">{fmt(f.t)}</span> window {fmt(f.window_t0)}–{fmt(f.window_t1)}
@@ -726,11 +956,34 @@ function Live({
 
 // ---------- dashboard ----------
 type DashboardT = {
-  courses: { id: string; name: string; lectures: number; last_lecture: string | null; open_flags: number; pending_suggestions: number; recaps: number }[]
+  courses: {
+    id: string
+    name: string
+    lectures: number
+    last_lecture: string | null
+    open_flags: number
+    pending_suggestions: number
+    recaps: number
+  }[]
   inbox: { one_tap: number; maybe: number }
   upcoming: Suggestion[]
-  usage: { by_stage: { stage: string; model: string; calls: number; cost_usd: number; input_tokens: number; output_tokens: number }[]; total_cost_usd: number; calls: number }
-  asr: { rtf_p95_avg: number | null; battery_drain_pct_per_hour: number | null; recorded_hours: number }
+  usage: {
+    by_stage: {
+      stage: string
+      model: string
+      calls: number
+      cost_usd: number
+      input_tokens: number
+      output_tokens: number
+    }[]
+    total_cost_usd: number
+    calls: number
+  }
+  asr: {
+    rtf_p95_avg: number | null
+    battery_drain_pct_per_hour: number | null
+    recorded_hours: number
+  }
   storage: { db_bytes: number }
 }
 
@@ -841,7 +1094,12 @@ function Dashboard({ setError }: { setError: (e: string | null) => void }) {
 }
 
 // ---------- inbox view ----------
-type TargetHealthT = { name: string; configured: boolean; connected: boolean; detail: string }
+type TargetHealthT = {
+  name: string
+  configured: boolean
+  connected: boolean
+  detail: string
+}
 
 function Inbox({ setError }: { setError: (e: string | null) => void }) {
   const [proposed, setProposed] = useState<Suggestion[]>([])
@@ -975,7 +1233,12 @@ function Inbox({ setError }: { setError: (e: string | null) => void }) {
           </p>
         )}
         {confirmed.map((s) => {
-          const ext = (s.payload as unknown as { external?: Record<string, { id: string; url: string | null }> }).external ?? {}
+          const ext =
+            (
+              s.payload as unknown as {
+                external?: Record<string, { id: string; url: string | null }>
+              }
+            ).external ?? {}
           const failed = s.state.startsWith('failed')
           return (
             <p key={s.id} className="row">
@@ -1042,7 +1305,7 @@ function Lectures({ setError, llmAvailable, initialId }: { setError: (e: string 
             <br />
             <span className="muted">
               {when(r.started_at)} · {r.status}
-              {r.source === 'replay' ? ' · from a recording' : ''}
+              {r.source === 'replay' ? ' · from a recording' : r.source === 'youtube' ? ' · from a YouTube video' : ''}
             </span>
           </p>
         ))}
@@ -1056,9 +1319,18 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
   const [d, setD] = useState<Detail | null>(null)
   const [decks, setDecks] = useState<Deck[]>([])
   const [busy, setBusy] = useState<string | null>(null)
-  const [align, setAlign] = useState<{ coverage: number; off_slide: { t0: number; t1: number }[]; deck_mismatch?: boolean; note?: string } | null>(null)
+  const [align, setAlign] = useState<{
+    coverage: number
+    off_slide: { t0: number; t1: number }[]
+    deck_mismatch?: boolean
+    note?: string
+  } | null>(null)
   const [extract, setExtract] = useState<ExtractSummary | null>(null)
-  const [progress, setProgress] = useState<{ done: number; total: number; stage: string } | null>(null)
+  const [progress, setProgress] = useState<{
+    done: number
+    total: number
+    stage: string
+  } | null>(null)
   const [highlightT, setHighlightT] = useState<number | null>(null)
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<AnswerT | null>(null)
@@ -1124,7 +1396,7 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
       <p className="muted small">
         {[
           L.status,
-          L.source === 'replay' ? 'listened from a recording' : null,
+          L.source === 'replay' ? 'listened from a recording' : L.source === 'youtube' ? 'imported from YouTube' : null,
           L.asr_model ? `${L.asr_model} on ${L.power_state}` : null,
           L.asr_rtf_p95 ? `speech-to-text at ${(1 / L.asr_rtf_p95).toFixed(0)}× real time` : null,
           drain !== null && drain > 0 ? `battery −${drain}%` : null,
@@ -1136,6 +1408,14 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
           .filter(Boolean)
           .join(' · ')}
       </p>
+      {L.source_url && (
+        <p className="muted small">
+          Source:{' '}
+          <a href={L.source_url} target="_blank" rel="noreferrer">
+            {L.source_url}
+          </a>
+        </p>
+      )}
 
       <div className="controls">
         <a className="button" href={`/api/lectures/${id}/export.md`}>
@@ -1185,7 +1465,10 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
               const fd = new FormData()
               fd.append('file', f)
               run('upload', async () => {
-                const deck = await api<Deck>('/api/decks', { method: 'POST', body: fd })
+                const deck = await api<Deck>('/api/decks', {
+                  method: 'POST',
+                  body: fd,
+                })
                 await api(`/api/lectures/${id}/deck`, json({ deck_id: deck.id }))
               })
             }}
@@ -1200,6 +1483,19 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
           Match transcript to slides
         </button>
       </div>
+      {d.deck && d.deck.slides_text.length > 0 && (
+        <details className="slides-list">
+          <summary>
+            {d.deck.slides_text.length} slides read from {d.deck.filename}
+          </summary>
+          {d.deck.slides_text.map((text, i) => (
+            <p key={i}>
+              <span className="slide">slide {i + 1}</span>
+              <span className="tx">{text}</span>
+            </p>
+          ))}
+        </details>
+      )}
       {align && (
         <p className="muted">
           {align.note ?? `coverage ${(align.coverage * 100).toFixed(0)}%`}
@@ -1268,10 +1564,26 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
                   <Sources list={f.sources} jump={jump} />
                   <span className="helpful">
                     Helpful?
-                    <button className={`small ${d.recap!.flag_helpful[String(f.flag_id)] === true ? 'primary' : ''}`} onClick={() => rate(null, { ...d.recap!.flag_helpful, [f.flag_id]: true })}>
+                    <button
+                      className={`small ${d.recap!.flag_helpful[String(f.flag_id)] === true ? 'primary' : ''}`}
+                      onClick={() =>
+                        rate(null, {
+                          ...d.recap!.flag_helpful,
+                          [f.flag_id]: true,
+                        })
+                      }
+                    >
                       Yes
                     </button>
-                    <button className={`small ${d.recap!.flag_helpful[String(f.flag_id)] === false ? 'danger' : ''}`} onClick={() => rate(null, { ...d.recap!.flag_helpful, [f.flag_id]: false })}>
+                    <button
+                      className={`small ${d.recap!.flag_helpful[String(f.flag_id)] === false ? 'danger' : ''}`}
+                      onClick={() =>
+                        rate(null, {
+                          ...d.recap!.flag_helpful,
+                          [f.flag_id]: false,
+                        })
+                      }
+                    >
                       No
                     </button>
                   </span>
@@ -1369,7 +1681,11 @@ function LectureDetail({ id, setError, llmAvailable }: { id: string; setError: (
           return (
             <p key={s.id} id={`seg-${s.id}`} className={`${flagged ? 'flagged' : s.trigger_terms.length ? 'hit' : ''} ${lit ? 'lit' : ''}`}>
               <span className="t">{fmt(s.t0)}</span>
-              {slide ? <span className="slide">slide {slide}</span> : null}
+              {slide ? (
+                <span className="slide" title={d.deck?.slides_text[slide - 1]}>
+                  slide {slide}
+                </span>
+              ) : null}
               <span className="tx">{s.text}</span>
             </p>
           )

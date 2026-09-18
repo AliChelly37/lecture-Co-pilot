@@ -547,6 +547,42 @@ button.flag kbd {
   color: var(--chalk-dim);
 }
 
+/* paste a YouTube link, next to the file-upload control */
+.yt-import {
+  display: flex;
+  gap: 8px;
+}
+
+.yt-import input {
+  width: 240px;
+}
+
+/* the slide currently on screen, following the recording's position */
+.slide-now {
+  flex-basis: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: rgba(111, 160, 255, 0.08);
+  border: 1px solid rgba(111, 160, 255, 0.22);
+}
+
+.slide-now b {
+  font: 600 0.78rem var(--font-display);
+  color: var(--blue);
+  white-space: nowrap;
+}
+
+.slide-now span {
+  font-size: 0.85rem;
+  color: var(--chalk);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .transcript p.now .t {
   color: var(--hl);
   opacity: 1;
@@ -682,6 +718,28 @@ main.dash > section:not(.cards) {
   padding: 0 5px;
   margin-right: 8px;
   vertical-align: 1px;
+  cursor: help;
+}
+
+/* the recovered slide text, one per detected slide */
+.slides-list {
+  margin: 10px 0;
+  border-radius: var(--r-sm);
+  background: rgba(0, 0, 0, 0.18);
+  padding: 4px 14px;
+}
+
+.slides-list summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font: 500 0.85rem var(--font-body);
+  color: var(--chalk-dim);
+}
+
+.slides-list p {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .muted {

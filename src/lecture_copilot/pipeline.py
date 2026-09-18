@@ -3,6 +3,7 @@ the LlmGateway. Each step is idempotent and resumable on its own."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from collections.abc import Callable
@@ -46,10 +47,18 @@ from lecture_copilot.recap import (
 )
 from lecture_copilot.store import Store
 from lecture_copilot.suggest import SuggestionService, tier_and_reason
+from lecture_copilot.youtube import Cut, to_jpeg
 
 log = logging.getLogger(__name__)
 
 KEEP_KINDS = {"board", "slide_projection", "paper"}
+
+SLIDE_VIDEO_SYSTEM = (
+    "You read a frame grabbed from a recorded lecture video, at the moment the slide on screen changed, "
+    "for a study tool. Transcribe the slide's text faithfully, in reading order; equations in plain words "
+    "if not LaTeX. If the frame is not a slide (a speaker, an audience, a blank or transitional frame), "
+    "set content_kind accordingly and leave text empty; never invent content that is not visible."
+)
 
 
 def ingest_deck(store: Store, path: Path, course_id: str | None) -> dict:
@@ -114,6 +123,71 @@ def import_photos(store: Store, llm: LlmGateway, lecture: dict, course: dict, fi
         )
         # `photo.jpeg` goes out of scope here; nothing was written to disk.
     return store.board_captures(lecture["id"])
+
+
+def slides_from_youtube(
+    store: Store,
+    llm: LlmGateway,
+    lecture: dict,
+    course: dict,
+    video_id: str,
+    title: str,
+    cuts: list[Cut],
+    duration_s: float,
+    progress: Callable[[int, int], None] | None = None,
+    max_frames: int = 150,
+    cancelled: Callable[[], bool] | None = None,
+) -> dict | None:
+    """Read each detected slide change (D27) with the vision model, keep only
+    the frames that were actually a slide, and write an exact alignment
+    (D8/D19: the image is read once and dropped; only its text is stored).
+    Returns None if nothing worth keeping was found (a talking-head video, or
+    no model configured) — the transcript still stands on its own.
+    """
+    if not cuts:
+        return None
+    skipped = max(0, len(cuts) - max_frames)  # a very long, cut-heavy video: bound the model calls (at least this many)
+    cuts = cuts[:max_frames]
+    kept: list[tuple[float, str]] = []  # (t, slide text), in order
+    last_norm = ""
+    for i, cut in enumerate(cuts):
+        if cancelled and cancelled():
+            return None  # the session ended while slides were being read: store nothing
+        if progress:
+            progress(i, len(cuts))
+        try:
+            reading = llm.structured(
+                stage="slide_ocr",
+                schema=BoardReading,
+                system=[SLIDE_VIDEO_SYSTEM],
+                user="Read this slide.",
+                images=[to_jpeg(cut.frame)],
+                effort="low",
+                cache=False,
+                lecture_id=lecture["id"],
+                max_tokens=4000,
+            )
+        except Exception:
+            log.warning("slide OCR failed at %.1fs of %s; skipping that frame", cut.t, video_id, exc_info=True)
+            continue
+        norm = " ".join(reading.text.split()).lower()
+        if reading.content_kind in KEEP_KINDS and norm and norm != last_norm:  # same slide again: the camera cut away and back
+            kept.append((cut.t, reading.text))
+            last_norm = norm
+    if progress:
+        progress(len(cuts), len(cuts))
+    if not kept:
+        return None
+
+    deck_id = hashlib.sha256(f"youtube:{video_id}".encode()).hexdigest()
+    store.upsert_deck(deck_id, course["id"], f"{title} (slides recovered from the video)", [text for _, text in kept])
+    store.attach_deck(lecture["id"], deck_id)
+    windows = [
+        (t, kept[i + 1][0] if i + 1 < len(kept) else duration_s, i + 1, 1.0)  # exact timestamps: score 1.0, no guessing
+        for i, (t, _) in enumerate(kept)
+    ]
+    store.save_alignment(lecture["id"], windows)
+    return {"deck_id": deck_id, "slide_count": len(kept), "frames_read": len(cuts), "skipped": skipped}
 
 
 STRONG_TERMS = {

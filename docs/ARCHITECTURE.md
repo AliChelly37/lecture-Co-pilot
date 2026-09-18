@@ -56,7 +56,7 @@ model would have bought.
  +----------------------------------------------------------------------+
  | Browser UI (React/Vite, http://localhost:8765)                       |
  |  live transcript | possible-deadline badge | flag/pause buttons      |
- |  replay a recording (audio element + tape, D26)                      |
+ |  replay a recording or a YouTube link (audio element + tape, D26/27) |
  |  photo import | suggestion inbox (confirm/dismiss/undo) | recap      |
  |  ask-the-lecture | dashboard | export/delete                         |
  +-----------------------------+----------------------------------------+
@@ -66,7 +66,7 @@ model would have bought.
  |                                                                      |
  |  DURING CLASS                                                        |
  |  MicCapture -> VAD -> WhisperWorker (GPU, CPU fallback) -> Timeline  |
- |  FileFeeder (replay: decoded upload, paced by backlog) ---^          |
+ |  FileFeeder (replay/YouTube: decoded, paced by backlog) ------^      |
  |  HotkeyListener (flag, pause) -----------------------------> Timeline|
  |  TriggerFilter (deterministic) <---------------------------- Timeline|
  |  SleepGuard (blocks system sleep while recording)                    |
@@ -128,6 +128,17 @@ for flags, F9/F10 and `elapsed_s`, and remembers the furthest point played. The
 transcript is stored as fast as the GPU makes it; the UI shows a line, and
 counts its badge tick, once playback has reached it. Pause stops the playback,
 not the transcription, and records no gap: the recording is complete.
+
+**YouTube import (D27).** The same replay session, with the audio fetched by
+the backend instead of picked by the student, plus slides. `yt-dlp` downloads
+audio and a 480p video-only stream into a temp directory. Audio is decoded and
+fed exactly like a replay, so transcription is under way within seconds and the
+browser can fetch the audio once to play it. A background thread then walks the
+video at 1 fps, `detect_cuts` keeps one frame per distinct slide, the local
+vision model reads each frame once (only its text is kept), and the deck plus an
+**exact** alignment (each slide's on-screen interval, score 1.0) are written;
+the UI then shows which slide the audio is on. The temp directory is deleted as
+soon as the reader finishes or is cancelled by `stop()`.
 
 ### 4b. After the lecture
 1. Import board photos (drag-drop or file picker); EXIF time assigns them to the lecture; `BoardReader` derives text; images dropped.
@@ -222,6 +233,10 @@ Principle: **degrade visibly, never silently.**
 | Disk nearly full (26 GB free today) | Model cache is checked before download; SQLite growth is small (text only) |
 | Replay: page reloaded mid-recording | A `pagehide` beacon stops the backend clock at the last position (if it never arrives, the page stops it on reconnect); the transcript and flags already heard are restored from the store; the UI asks for the same file again (no re-upload, duration checked) and continues from that position |
 | Replay: file the browser can't play, too large, unreadable | Refused before anything starts: the browser checks playability first; 413 above `replay_max_mb` (400 MB); 400 with the decoder's reason |
+| YouTube: link unreadable, playlist, live stream, longer than the limit | Refused with the reason (400) before any session exists; the temp directory is removed |
+| YouTube: a stream answers 403 | Retried, then a smaller stream; if the video stream fails altogether the import continues audio-only, without slides |
+| YouTube: no model, no slides, or a talking head | Transcript only; `status.slides` is `none` and no slide panel appears |
+| YouTube: stopped while slides are being read | The reader is cancelled and waited for; nothing partial is stored; the temp directory is removed |
 | Replay: finished early | The feeder stops where it is; the transcript ends within one chunk of the stop point, never before the playback position |
 
 ### 9.2 Dates: ambiguous, sarcastic, hypothetical, corrected

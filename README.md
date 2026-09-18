@@ -30,6 +30,10 @@ Grotesque, IBM Plex Sans, IBM Plex Mono.
 |---|
 | ![Replaying a recording with two flags](docs/screenshots/replay.jpg) |
 
+| From a YouTube link: the slide recovered from the video follows the audio |
+|---|
+| ![A YouTube import with the current slide above the transcript](docs/screenshots/youtube.jpg) |
+
 ## Status
 
 - [x] M0 Whisper benchmark on the target laptop
@@ -41,6 +45,7 @@ Grotesque, IBM Plex Sans, IBM Plex Mono.
 - [x] M6 Eval harness: labelled cases, the trust metric (fake deadlines reaching one tap: 0), precision 1.00 / surfaced recall 0.92 on the local 4B model, deterministic recap-citation check (public OCW cases: when you add them)
 - [x] M7 Dashboard, export (JSON/Markdown), delete, transcript retention, read-only MCP server
 - [x] Replay: catch up on a missed lecture from a recording, with the same flag and pause buttons (D26)
+- [x] YouTube import: a public lecture becomes a transcript plus slides recovered from the video, aligned by exact timestamps, all local (D27)
 
 ## Run it
 
@@ -79,6 +84,18 @@ highlighter ticks on the tape, and clicking one jumps back to it. Press
 recap, ask it questions. The audio file itself is never stored; only the
 transcript is. Ask before using a classmate's recording, and check the
 lecturer is fine with it.
+
+**No recording, but a public video?** Paste a YouTube link next to that button.
+The laptop downloads the video, transcribes the audio (playing within seconds)
+and, in the background, reads the slides: it spots each slide change in the
+picture, reads the slide with the local vision model, and aligns it to the audio
+by the exact second it appeared. The current slide is shown above the
+transcript and follows the audio; after **Finish** every transcript line in
+**Lectures** carries its slide number, and the slides are listed as text. Slide
+images are read once and never stored. Notes: a talking-head video simply has no
+slides; the limit is 180 minutes; installing Node.js helps `yt-dlp` on videos
+YouTube protects; and downloading from YouTube is against its Terms of Service,
+so use it only on videos you are entitled to watch.
 
 After a lecture: open **Lectures**, attach the slide deck and import board photos,
 then **Extract deadlines**. Detected items land in **Inbox**: ready ones confirm

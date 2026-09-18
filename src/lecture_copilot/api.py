@@ -99,6 +99,12 @@ class PlaybackIn(BaseModel):
     t: float
 
 
+class YoutubeIn(BaseModel):
+    course_id: str
+    url: str
+    language: str = "en"
+
+
 class AttachDeckIn(BaseModel):
     deck_id: str | None
 
@@ -211,6 +217,53 @@ async def playback(body: PlaybackIn) -> dict:
         raise HTTPException(409, str(exc)) from exc
 
 
+_AUDIO_MIME = {
+    "webm": "audio/webm",
+    "m4a": "audio/mp4",
+    "mp4": "audio/mp4",
+    "opus": "audio/opus",
+    "ogg": "audio/ogg",
+    "mp3": "audio/mpeg",
+    "wav": "audio/wav",
+}
+
+
+@app.post("/api/lectures/youtube")
+async def start_youtube(body: YoutubeIn) -> dict:
+    """Import a public lecture recording (D27): downloads to a temp file
+    deleted before this returns, transcribes it and reads any slide changes
+    with the vision model if one is configured. Can take a while for a long
+    video; progress arrives as `progress` events on the WebSocket."""
+    if not body.url.strip():
+        raise HTTPException(400, "paste a YouTube link")
+    try:
+        result = await asyncio.to_thread(state.session.start_youtube, body.course_id, body.url.strip(), state.llm, body.language)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:  # a bad link, an unreadable video, or one longer than the limit
+        raise HTTPException(400, str(exc)) from exc
+    state.sleep_guard.acquire()
+    return result
+
+
+@app.get("/api/lectures/{lecture_id}/audio")
+async def youtube_audio(lecture_id: str) -> Response:
+    """The audio this session downloaded from YouTube, served once so the
+    browser can play it the same way it plays an uploaded recording (D26).
+    Only available while that import is the active session."""
+    if state.session.lecture is None or state.session.lecture["id"] != lecture_id:
+        raise HTTPException(404, "that YouTube import is no longer the active session")
+    audio = state.session.playable_audio()
+    if audio is None:
+        raise HTTPException(404, "no audio held for this lecture")
+    data, ext = audio
+    return Response(content=data, media_type=_AUDIO_MIME.get(ext, "application/octet-stream"))
+
+
 @app.post("/api/lectures/stop")
 async def stop_lecture() -> dict:
     try:
@@ -253,7 +306,7 @@ async def get_lecture(lecture_id: str) -> dict:
         "segments": state.store.segments(lecture_id),
         "flags": state.store.flags(lecture_id),
         "gaps": state.store.gaps(lecture_id),
-        "deck": {k: v for k, v in deck.items() if k != "slides_text"} | {"indexed": deck["slide_index"] is not None} if deck else None,
+        "deck": deck | {"indexed": deck["slide_index"] is not None} if deck else None,
         "captures": state.store.board_captures(lecture_id),
         "alignment": state.store.alignment(lecture_id),
         "candidates": state.store.candidates(lecture_id),

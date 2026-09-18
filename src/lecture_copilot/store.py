@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS lectures (
   power_state TEXT,                           -- ac | battery
   battery_start INTEGER,
   battery_end INTEGER,
-  source TEXT NOT NULL DEFAULT 'mic',         -- mic | replay (D26)
+  source TEXT NOT NULL DEFAULT 'mic',         -- mic | replay (D26) | youtube (D27)
+  source_url TEXT,                            -- the YouTube link, when source = 'youtube'
   notes TEXT
 );
 
@@ -187,8 +188,10 @@ class Store:
         # Columns added after the first release; CREATE TABLE IF NOT EXISTS leaves old files untouched.
         cols = {r[1] for r in self._conn.execute("PRAGMA table_info(lectures)")}
         if "source" not in cols:
-            self._conn.execute("ALTER TABLE lectures ADD COLUMN source TEXT NOT NULL DEFAULT 'mic'")  # mic | replay
-            self._conn.commit()
+            self._conn.execute("ALTER TABLE lectures ADD COLUMN source TEXT NOT NULL DEFAULT 'mic'")  # mic | replay | youtube
+        if "source_url" not in cols:
+            self._conn.execute("ALTER TABLE lectures ADD COLUMN source_url TEXT")  # D27: the YouTube link, for provenance
+        self._conn.commit()
 
     # -- generic helpers -------------------------------------------------
     def execute(self, sql: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
@@ -231,12 +234,13 @@ class Store:
         battery: int | None,
         source: str = "mic",
         notes: str | None = None,
+        source_url: str | None = None,
     ) -> dict:
         lid = new_id()
         self.execute(
-            "INSERT INTO lectures (id, course_id, started_at, status, asr_model, asr_device, power_state, battery_start, source, notes)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (lid, course_id, now_iso(), "recording", asr_model, asr_device, power_state, battery, source, notes),
+            "INSERT INTO lectures (id, course_id, started_at, status, asr_model, asr_device, power_state, battery_start, source, notes, source_url)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (lid, course_id, now_iso(), "recording", asr_model, asr_device, power_state, battery, source, notes, source_url),
         )
         return self.one("SELECT * FROM lectures WHERE id=?", (lid,))  # type: ignore[return-value]
 

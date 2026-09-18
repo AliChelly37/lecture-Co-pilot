@@ -1,17 +1,21 @@
 """The single active lecture session: wires the audio source, the Whisper
 worker, hotkeys, the trigger filter and the timeline together (M1).
 
-Two sources share one session (D26): the microphone during a live lecture,
-or a recording the student plays back to catch up on a class they missed.
-The clock is the audio clock in both cases: mic samples captured, or the
-playback position the browser reports. Everything here runs on the laptop;
-no network access is needed during class.
+Three sources share one session: the microphone during a live lecture, a
+recording the student plays back to catch up on a class they missed (D26), or
+a public lecture video imported from YouTube, slides included (D27). The
+clock is the audio clock in all three: mic samples captured, or the playback
+position the browser reports. Everything here runs on the laptop; no network
+access is needed during class (a YouTube import is the one action that reaches
+the internet, and only when the student asks for it).
 """
 
 from __future__ import annotations
 
 import logging
+import tempfile
 import threading
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -21,12 +25,21 @@ from lecture_copilot.bus import EventBus
 from lecture_copilot.capture import MicCapture
 from lecture_copilot.config import Settings
 from lecture_copilot.hotkeys import Hotkeys
+from lecture_copilot.llm import LlmGateway
 from lecture_copilot.power import read_power_state
 from lecture_copilot.replay import Clock, FileFeeder, PlaybackClock
 from lecture_copilot.store import Store
 from lecture_copilot.trigger import score_segment
+from lecture_copilot.youtube import YoutubeMedia, detect_cuts, download, sample_frames
 
 log = logging.getLogger(__name__)
+
+
+def _cleanup(tmp: tempfile.TemporaryDirectory) -> None:
+    try:
+        tmp.cleanup()
+    except OSError:
+        log.warning("could not remove the temporary download directory %s", tmp.name, exc_info=True)
 
 
 class LectureSession:
@@ -43,11 +56,17 @@ class LectureSession:
         self.badge = 0
         self._pause_gap: int | None = None
         self._mic_gap: int | None = None
-        # source: "mic" | "replay"; the clock is the mic capture or the playback clock
+        # source: "mic" | "replay" | "youtube"; the clock is the mic capture or the playback clock
         self.source = "mic"
         self.clock: Clock | None = None
         self.feeder: FileFeeder | None = None
         self._replay_name: str | None = None
+        # YouTube only (D27): the downloaded audio, held so the browser can fetch it once to play.
+        self._playable_audio: bytes | None = None
+        self._playable_audio_ext: str = "bin"
+        self._slides_state: str | None = None  # youtube only: reading | ready | none
+        self._slides_cancel = threading.Event()
+        self._slides_thread: threading.Thread | None = None
 
     # -- status ----------------------------------------------------------
     def status(self) -> dict[str, Any]:
@@ -61,6 +80,7 @@ class LectureSession:
             "badge": self.badge,
             "asr": self.worker.status() if self.worker else None,
             "replay": self._replay_status(),
+            "slides": self._slides_state if self.lecture else None,
             "hotkeys": self.hotkeys.active if self.hotkeys else False,
             "power": {"state": power.label, "battery": power.battery_percent},
         }
@@ -149,6 +169,136 @@ class LectureSession:
             )
             return self.lecture
 
+    def start_youtube(self, course_id: str, url: str, llm: LlmGateway, language: str = "en") -> dict[str, Any]:
+        """Import a public lecture recording (D27): download audio and a
+        capped-resolution video stream to a temp directory (D8, same rule as a
+        deck upload: deleted as soon as it has been read), transcribe the audio
+        exactly like a played-back file, and read the slide changes in the video
+        with the vision model.
+
+        This returns as soon as the audio is decoded and transcription is under
+        way, so the student can start listening within seconds; reading the
+        slides takes a minute or more and continues in the background, announcing
+        itself with `slides_ready`. Each slide's alignment window is its exact
+        on-screen interval, so there is no guessing which sentence goes with
+        which slide, unlike the lexical matching a PDF deck needs.
+        """
+        with self._lock:
+            power = read_power_state()
+            name, device, compute = self._open(course_id, language, None, power.on_ac)
+            assert self.worker is not None
+            tmp = tempfile.TemporaryDirectory(prefix="lc-youtube-")
+            handed_off = False  # the slide reader owns the temp directory once it starts
+            try:
+                from faster_whisper.audio import decode_audio
+
+                media = download(url, Path(tmp.name), self.s.youtube_max_minutes, self.s.youtube_video_height)
+                audio = decode_audio(str(media.audio_path), sampling_rate=self.s.sample_rate)
+                playable = media.audio_path.read_bytes()
+                ext = media.audio_path.suffix.lstrip(".").lower() or "bin"
+
+                course = self.store.one("SELECT * FROM courses WHERE id=?", (course_id,))
+                self.lecture = self.store.start_lecture(
+                    course_id,
+                    name,
+                    device,
+                    power.label,
+                    power.battery_percent,
+                    source="youtube",
+                    notes=f"YouTube: {media.title}",
+                    source_url=url,
+                )
+                self.source = "youtube"
+                self.paused = True
+                self.clock = PlaybackClock()
+                self._replay_name = media.title
+                self._playable_audio, self._playable_audio_ext = playable, ext
+                self._slides_state = None
+
+                self.worker.start(name, device, compute)
+                self.feeder = FileFeeder(audio, self.s.sample_rate, self.worker, cap_s=self.s.replay_backlog_cap_s)
+                self.feeder.start()
+                self._start_hotkeys()
+
+                if media.video_path is not None and llm.available:
+                    self._slides_state = "reading"
+                    self._slides_cancel.clear()
+                    self._slides_thread = threading.Thread(
+                        target=self._read_slides,
+                        args=(media, llm, course, self.lecture, tmp),
+                        name="slides-reader",
+                        daemon=True,
+                    )
+                    self._slides_thread.start()
+                    handed_off = True
+                self.bus.publish(
+                    {"type": "lecture_started", "lecture": self.lecture, "asr": self.worker.status(), "replay": self._replay_status()}
+                )
+                return {"lecture": self.lecture, "duration_s": media.duration_s, "slides": self._slides_state or "none"}
+            except Exception:
+                if self.lecture is None:
+                    self.worker = None  # failed before anything else was touched: fully reset, like start()
+                raise
+            finally:
+                if not handed_off:
+                    _cleanup(tmp)
+
+    def _read_slides(self, media: YoutubeMedia, llm: LlmGateway, course: dict, lecture: dict, tmp: tempfile.TemporaryDirectory) -> None:
+        """Runs on its own thread. Best-effort: a failure here never touches the
+        transcript already under way, and it stops early if the session ends."""
+        from lecture_copilot.pipeline import slides_from_youtube
+
+        summary: dict | None = None
+        try:
+            limit = self.s.slide_max_frames
+            cuts = []
+            # One more than the cap, so the summary can say "there were more"; also bounds the frames held in memory.
+            frames = sample_frames(media.video_path, self.s.slide_sample_fps)
+            for cut in detect_cuts(frames, self.s.slide_diff_threshold, self.s.slide_min_gap_s):
+                if self._slides_cancel.is_set():
+                    return
+                cuts.append(cut)
+                if len(cuts) > limit:
+                    break
+
+            def _progress(done: int, total: int) -> None:
+                self.bus.publish(
+                    {
+                        "type": "progress",
+                        "job": "youtube",
+                        "lecture_id": lecture["id"],
+                        "stage": "reading slides",
+                        "done": done,
+                        "total": total,
+                    }
+                )
+
+            summary = slides_from_youtube(
+                self.store,
+                llm,
+                lecture,
+                course,
+                media.video_id,
+                media.title,
+                cuts,
+                media.duration_s,
+                progress=_progress,
+                max_frames=limit,
+                cancelled=self._slides_cancel.is_set,
+            )
+        except Exception:
+            log.warning("reading the slides of %s failed; the transcript stands on its own", media.video_id, exc_info=True)
+        finally:
+            _cleanup(tmp)
+        if not self._slides_cancel.is_set():
+            self._slides_state = "ready" if summary else "none"
+            self.bus.publish({"type": "slides_ready", "lecture_id": lecture["id"], "deck": summary})
+
+    def playable_audio(self) -> tuple[bytes, str] | None:
+        if self.source != "youtube" or self._playable_audio is None:
+            return None
+        return self._playable_audio, self._playable_audio_ext
+
     def _start_hotkeys(self) -> None:
         self.hotkeys = Hotkeys({self.s.hotkey_flag: self.flag, self.s.hotkey_pause: self.toggle_pause})
         self.hotkeys.start()
@@ -163,6 +313,10 @@ class LectureSession:
             if self._pause_gap is not None:
                 self.store.close_gap(self._pause_gap, self.clock.seconds)
                 self._pause_gap = None
+            self._slides_cancel.set()  # a slide reader still running is told to stop and drop what it has
+            if self._slides_thread is not None:
+                self._slides_thread.join(timeout=30)
+                self._slides_thread = None
             if self.feeder is not None:
                 self.feeder.stop()  # a replay stopped early is not transcribed past this point
             if self.capture is not None:
@@ -174,6 +328,8 @@ class LectureSession:
             self.bus.publish({"type": "lecture_ended", "lecture": ended})
             self.lecture, self.worker, self.capture, self.hotkeys = None, None, None, None
             self.clock, self.feeder, self._replay_name = None, None, None
+            self._playable_audio = None  # drop the downloaded audio from memory once the session ends
+            self._slides_state = None
             self.paused = False
             self.source = "mic"
             return ended  # type: ignore[return-value]

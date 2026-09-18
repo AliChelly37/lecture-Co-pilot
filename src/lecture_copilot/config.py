@@ -50,6 +50,15 @@ class Settings(BaseSettings):
     replay_max_mb: int = 400
     replay_backlog_cap_s: float = 8.0  # + a full 20 s chunk stays under asr_backlog_downgrade_s
 
+    # YouTube import (D27): a public lecture recording, downloaded to a temp file
+    # deleted right after processing (D8), same rule as a deck upload.
+    youtube_max_minutes: float = 180.0
+    youtube_video_height: int = 480  # capped resolution for the slide-detection stream; plenty for OCR
+    slide_sample_fps: float = 1.0
+    slide_diff_threshold: float = 0.045  # normalised mean pixel difference that counts as a slide change
+    slide_min_gap_s: float = 3.0  # ignore a second "change" closer than this (webcam motion, a flicker)
+    slide_max_frames: int = 150  # cap on vision-model calls per video; a longer run keeps the first ones
+
     # Post-lecture extraction (D15/D21): window size for the local provider; cloud providers use one window.
     extract_window_s: float = 600.0
     extract_overlap_s: float = 60.0
